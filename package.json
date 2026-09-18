@@ -14,6 +14,7 @@
     "test:watch": "vitest",
     "worker:dev": "wrangler dev",
     "worker:types": "wrangler types",
+    "deploy": "npm run build && wrangler deploy",
     "db:migrate:local": "wrangler d1 migrations apply marketflow-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply marketflow-db --remote",
     "db:seed:local": "wrangler d1 execute marketflow-db --local --file=./migrations/seed/development_seed.sql",
