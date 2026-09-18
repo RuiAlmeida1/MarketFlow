@@ -58,7 +58,8 @@ export function yahooSymbolFor(
   return null
 }
 
-type ChartResult = z.infer<typeof yahooSchema>['chart']['result']
+type ChartResult = NonNullable<z.infer<typeof yahooSchema>['chart']['result']>
+type ChartResultItem = ChartResult[number]
 
 interface YahooHistoricalPriceProviderOptions {
   readonly baseUrl?: string
@@ -129,7 +130,7 @@ export class YahooHistoricalPriceProvider implements HistoricalPriceProvider {
 
     const daily = await this.fetchChart(`${symbol}?range=1mo&interval=1d`)
     const closes = (daily?.indicators.quote[0]?.close ?? []).filter(
-      (value): value is number => value != null && value > 0,
+      (value: number | null): value is number => value != null && value > 0,
     )
     if (closes.length === 0) return null
     const price = closes[closes.length - 1] as number
@@ -137,7 +138,7 @@ export class YahooHistoricalPriceProvider implements HistoricalPriceProvider {
     return { price, previousClose }
   }
 
-  private async fetchChart(pathAndQuery: string): Promise<ChartResult[number] | undefined> {
+  private async fetchChart(pathAndQuery: string): Promise<ChartResultItem | undefined> {
     const response = await this.fetcher(`${this.baseUrl}/${pathAndQuery}`, {
       headers: {
         accept: 'application/json',
