@@ -62,7 +62,7 @@ export function AllocationChart({
   }))
 
   return (
-    <div>
+    <div className="@container">
       <div className="mb-4">
         <SegmentedControl
           options={options}
@@ -79,7 +79,7 @@ export function AllocationChart({
           description="Add holdings to see how your portfolio is diversified."
         />
       ) : (
-        <div className="flex flex-col items-center gap-5 sm:flex-row">
+        <div className="flex flex-col items-center gap-5 @md:flex-row">
           <div className="h-48 w-48 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -102,7 +102,7 @@ export function AllocationChart({
             </ResponsiveContainer>
           </div>
 
-          <ul className="w-full space-y-2">
+          <ul className="w-full min-w-0 space-y-2 @md:w-auto @md:flex-1">
             {slices.map((slice, index) => (
               <li
                 key={slice.key}
@@ -118,7 +118,7 @@ export function AllocationChart({
                 </span>
                 <span className="flex shrink-0 items-center gap-3 tabular-nums">
                   <span className="text-muted">{formatMoney(slice.value)}</span>
-                  <span className="w-14 text-right font-medium text-foreground">
+                  <span className="w-12 text-right font-medium text-foreground">
                     {formatPercentage(slice.weight, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
                   </span>
                 </span>
