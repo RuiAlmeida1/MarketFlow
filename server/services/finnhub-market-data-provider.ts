@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { ExternalServiceError } from '../../shared/domain/errors'
 import type {
+  CompanyProfile,
+  CompanyProfileProvider,
   MarketDataProvider,
   MarketInstrumentKind,
   MarketQuote,
@@ -25,6 +27,15 @@ const finnhubQuoteSchema = z.object({
 })
 
 type FinnhubQuotePayload = z.infer<typeof finnhubQuoteSchema>
+
+const finnhubProfileSchema = z.object({
+  name: z.string().optional(),
+  finnhubIndustry: z.string().optional(),
+  country: z.string().optional(),
+  exchange: z.string().optional(),
+  currency: z.string().optional(),
+  ticker: z.string().optional(),
+})
 
 export interface FinnhubInstrument {
   readonly symbol: string
@@ -66,7 +77,7 @@ const DEFAULT_TIMEOUT_MS = 8_000
  * only ever talks to our own `/api/markets` endpoint.
  */
 export class FinnhubMarketDataProvider
-  implements MarketDataProvider, SymbolQuoteProvider
+  implements MarketDataProvider, SymbolQuoteProvider, CompanyProfileProvider
 {
   private readonly apiKey: string
   private readonly baseUrl: string
@@ -114,6 +125,38 @@ export class FinnhubMarketDataProvider
       change: payload.d ?? 0,
       changePercentage: payload.dp ?? 0,
       timestamp: payload.t ? payload.t * 1000 : Date.now(),
+    }
+  }
+
+  /** Company reference data (`/stock/profile2`) used to enrich assets. */
+  async getCompanyProfile(symbol: string): Promise<CompanyProfile | null> {
+    const url = new URL(`${this.baseUrl}/stock/profile2`)
+    url.searchParams.set('symbol', symbol)
+    url.searchParams.set('token', this.apiKey)
+
+    const fetchFn = this.fetcher
+    const response = await fetchFn(url.toString(), {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(this.timeoutMs),
+    })
+    if (!response.ok) {
+      throw new ExternalServiceError(
+        `Market data provider responded with status ${response.status}.`,
+      )
+    }
+
+    const parsed = finnhubProfileSchema.safeParse(await response.json())
+    if (!parsed.success) return null
+    const data = parsed.data
+    if (!data.name && !data.finnhubIndustry) return null
+
+    return {
+      symbol,
+      name: data.name ?? symbol,
+      industry: data.finnhubIndustry ?? null,
+      country: data.country ?? null,
+      exchange: data.exchange ?? null,
+      currency: data.currency ?? null,
     }
   }
 

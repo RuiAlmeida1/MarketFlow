@@ -106,6 +106,36 @@ export class AssetRepository {
     return created
   }
 
+  /** Updates reference metadata, keeping existing values when null is passed. */
+  async updateMetadata(
+    id: string,
+    input: {
+      name?: string | null
+      sector?: string | null
+      industry?: string | null
+      country?: string | null
+    },
+  ): Promise<void> {
+    await executeStatement(
+      this.db,
+      `UPDATE assets SET
+         name = COALESCE(?, name),
+         sector = COALESCE(?, sector),
+         industry = COALESCE(?, industry),
+         country = COALESCE(?, country),
+         updated_at = ?
+       WHERE id = ?`,
+      [
+        input.name ?? null,
+        input.sector ?? null,
+        input.industry ?? null,
+        input.country ?? null,
+        new Date().toISOString(),
+        id,
+      ],
+    )
+  }
+
   /**
    * Resolves an asset by (symbol, exchange), falling back to an existing
    * listing of the same instrument in the same currency, and finally creating a

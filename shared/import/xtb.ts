@@ -333,7 +333,9 @@ function parseCashOperations(rows: SheetRows): {
       country: null,
       transactionType,
       quantity: 0,
-      price: Math.abs(amount),
+      // Keep the signed amount: reversals (negative dividend) and refunds
+      // (positive tax) must be preserved for correct net income.
+      price: amount,
       fees: 0,
       taxes: 0,
       currency: SETTLEMENT_CURRENCY,

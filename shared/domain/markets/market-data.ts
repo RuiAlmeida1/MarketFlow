@@ -38,3 +38,17 @@ export interface SymbolQuote {
 export interface SymbolQuoteProvider {
   getSymbolQuote(symbol: string): Promise<SymbolQuote | null>
 }
+
+/** Company reference data used to enrich imported assets. */
+export interface CompanyProfile {
+  readonly symbol: string
+  readonly name: string
+  readonly industry: string | null
+  readonly country: string | null
+  readonly exchange: string | null
+  readonly currency: string | null
+}
+
+export interface CompanyProfileProvider {
+  getCompanyProfile(symbol: string): Promise<CompanyProfile | null>
+}

@@ -1,5 +1,5 @@
 import type { CurrencyCode } from '../money/currency'
-import { type Money, addMoney, subtractMoney, zero } from '../money/money'
+import { type Money, addMoney, negate, subtractMoney, zero } from '../money/money'
 import type { Transaction } from '../transactions/transaction'
 
 /**
@@ -17,8 +17,8 @@ export interface ProjectedDividendPayment {
 
 /**
  * Derives dividend payments from DIVIDEND/TAX transactions, grouped per
- * (asset, date). Transactions are the source of truth; `dividend_payments` is a
- * projection of them.
+ * (asset, date). Amounts are stored signed (a negative DIVIDEND is a reversal,
+ * a positive TAX is a refund), so gross/tax/net reflect reality.
  */
 export function projectDividendPayments(
   transactions: readonly Transaction[],
@@ -49,7 +49,8 @@ export function projectDividendPayments(
     if (transaction.transactionType === 'DIVIDEND') {
       group.gross = addMoney(group.gross, transaction.price)
     } else {
-      group.tax = addMoney(group.tax, transaction.price)
+      // Tax rows are negative when withheld; store the magnitude.
+      group.tax = addMoney(group.tax, negate(transaction.price))
     }
     groups.set(key, group)
   }

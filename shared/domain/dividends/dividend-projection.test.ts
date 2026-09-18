@@ -33,13 +33,23 @@ describe('projectDividendPayments', () => {
   it('pairs a dividend with its withholding tax on the same asset/date', () => {
     const payments = projectDividendPayments([
       tx('DIVIDEND', 1.6),
-      tx('TAX', 0.24),
+      tx('TAX', -0.24),
     ])
     expect(payments).toHaveLength(1)
     expect(payments[0]).toMatchObject({ assetId: 'asset-1', date: '2026-09-16', currency: 'EUR' })
     expect(payments[0]?.amountGross.minorUnits).toBe(160)
     expect(payments[0]?.taxAmount.minorUnits).toBe(24)
     expect(payments[0]?.amountNet.minorUnits).toBe(136)
+  })
+
+  it('preserves signed reversals and tax refunds', () => {
+    const payments = projectDividendPayments([
+      tx('DIVIDEND', -1),
+      tx('TAX', 0.1),
+    ])
+    expect(payments[0]?.amountGross.minorUnits).toBe(-100)
+    expect(payments[0]?.taxAmount.minorUnits).toBe(-10)
+    expect(payments[0]?.amountNet.minorUnits).toBe(-90)
   })
 
   it('nets gross when there is no withholding tax', () => {

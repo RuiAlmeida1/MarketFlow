@@ -10,6 +10,7 @@ import { TransactionRepository } from '../repositories/transaction-repository'
 import { UserRepository } from '../repositories/user-repository'
 import { WatchlistRepository } from '../repositories/watchlist-repository'
 import { AccountService } from './account-service'
+import { AssetEnrichmentService } from './asset-enrichment-service'
 import { CurrencyConversionService } from './currency-conversion-service'
 import { DashboardService } from './dashboard-service'
 import { DividendProjectionService } from './dividend-projection-service'
@@ -90,12 +91,14 @@ export function createServices(env: Env): Services {
     prices,
   )
   const fxRefreshService = new FxRateRefreshService(fxRates)
+  const enrichmentService = new AssetEnrichmentService(finnhub, assets, holdings)
   const syncService = new SyncService(
     portfolios,
     holdingsService,
     priceRefreshService,
     fxRefreshService,
     prices,
+    enrichmentService,
   )
   const dashboardService = new DashboardService(
     portfolioService,

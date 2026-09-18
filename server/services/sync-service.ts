@@ -1,6 +1,7 @@
 import type { Money } from '../../shared/domain'
 import type { PortfolioRepository } from '../repositories/portfolio-repository'
 import type { PriceRepository } from '../repositories/price-repository'
+import type { AssetEnrichmentService } from './asset-enrichment-service'
 import type { FxRateRefreshService } from './fx-rate-refresh-service'
 import type { HoldingsService } from './holdings-service'
 import type { PriceRefreshService, PriceRefreshSummary } from './price-refresh-service'
@@ -36,6 +37,7 @@ export class SyncService {
     private readonly priceRefresh: PriceRefreshService,
     private readonly fxRefresh: FxRateRefreshService,
     private readonly prices: PriceRepository,
+    private readonly enrichment: AssetEnrichmentService,
   ) {}
 
   private async refreshRates(): Promise<void> {
@@ -43,6 +45,14 @@ export class SyncService {
       await this.fxRefresh.refresh()
     } catch (error) {
       console.warn('[sync] FX refresh failed', error)
+    }
+  }
+
+  private async enrichAssets(): Promise<void> {
+    try {
+      await this.enrichment.enrichTrackedAssets()
+    } catch (error) {
+      console.warn('[sync] asset enrichment failed', error)
     }
   }
 
@@ -63,6 +73,7 @@ export class SyncService {
   async syncPortfolio(portfolioId: string): Promise<PortfolioSyncResult> {
     const rebuild = await this.holdings.rebuild(portfolioId)
     await this.refreshRates()
+    await this.enrichAssets()
     const prices = await this.priceRefresh.refreshTrackedAssets()
     return {
       portfolioId,
@@ -78,6 +89,7 @@ export class SyncService {
       await this.holdings.rebuild(portfolio.id)
     }
     await this.refreshRates()
+    await this.enrichAssets()
     const prices = await this.priceRefresh.refreshTrackedAssets()
     return { portfolios: portfolios.length, prices }
   }

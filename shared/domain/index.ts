@@ -1,5 +1,6 @@
 export * from './errors'
 export * from './assets/asset'
+export * from './assets/sector'
 export * from './money/currency'
 export * from './money/money'
 export * from './money/format'
