@@ -145,7 +145,7 @@ export function DashboardPage() {
           className="xl:col-span-2"
         >
           <ErrorBoundary>
-            <TopHoldings holdings={data.holdings} />
+            <TopHoldings holdings={data.holdings} limit={12} />
           </ErrorBoundary>
         </SectionCard>
 

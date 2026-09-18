@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import type { HistoricalPricePoint, HistoricalPriceProvider } from '../../shared/domain'
+import type { Asset, HistoricalPricePoint, HistoricalPriceProvider } from '../../shared/domain'
 import { toDateKey } from '../../shared/utils/date'
 
 const yahooSchema = z.object({
@@ -27,15 +27,48 @@ const yahooSchema = z.object({
 const DEFAULT_BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart'
 const DEFAULT_TIMEOUT_MS = 8_000
 
-export interface YahooHistoricalPriceProviderOptions {
+/** Exchange -> Yahoo symbol suffix (XETRA -> `.DE`, LSE -> `.L`, ...). */
+const EXCHANGE_SUFFIX: Record<string, string> = {
+  XETRA: '.DE',
+  LSE: '.L',
+  EURONEXT: '.PA',
+  BME: '.MC',
+  BORSA_ITALIANA: '.MI',
+  SIX: '.SW',
+  TSE: '.T',
+  HKEX: '.HK',
+  TSX: '.TO',
+  ASX: '.AX',
+  NASDAQ_HELSINKI: '.HE',
+  OMX: '.ST',
+}
+
+/**
+ * Maps one of our assets to a Yahoo symbol. Exchange mapping takes priority so
+ * a non-US listing (e.g. Rheinmetall on XETRA) is resolved correctly even when
+ * the stored country is imprecise.
+ */
+export function yahooSymbolFor(
+  asset: Pick<Asset, 'symbol' | 'exchange' | 'country'>,
+): string | null {
+  if (asset.exchange && EXCHANGE_SUFFIX[asset.exchange]) {
+    return `${asset.symbol}${EXCHANGE_SUFFIX[asset.exchange]}`
+  }
+  if (asset.country === 'US') return asset.symbol
+  return null
+}
+
+type ChartResult = z.infer<typeof yahooSchema>['chart']['result']
+
+interface YahooHistoricalPriceProviderOptions {
   readonly baseUrl?: string
   readonly fetcher?: typeof fetch
   readonly timeoutMs?: number
 }
 
 /**
- * Free daily history from Yahoo Finance (no API key). Used to backfill the
- * performance chart; failures are non-fatal.
+ * Free quotes/history from Yahoo Finance (no API key). Used for near real-time
+ * holding prices, live FX and performance backfill. Failures are non-fatal.
  */
 export class YahooHistoricalPriceProvider implements HistoricalPriceProvider {
   private readonly baseUrl: string
@@ -55,25 +88,9 @@ export class YahooHistoricalPriceProvider implements HistoricalPriceProvider {
   ): Promise<HistoricalPricePoint[]> {
     const from = Math.floor(new Date(`${fromDate}T00:00:00Z`).getTime() / 1000)
     const to = Math.floor(new Date(`${toDate}T23:59:59Z`).getTime() / 1000)
-    const url = new URL(`${this.baseUrl}/${encodeURIComponent(symbol)}`)
-    url.searchParams.set('period1', String(from))
-    url.searchParams.set('period2', String(to))
-    url.searchParams.set('interval', '1d')
-
-    const fetchFn = this.fetcher
-    const response = await fetchFn(url.toString(), {
-      headers: {
-        accept: 'application/json',
-        'user-agent': 'Mozilla/5.0 (compatible; MarketFlow/1.0)',
-      },
-      signal: AbortSignal.timeout(this.timeoutMs),
-    })
-    if (!response.ok) {
-      throw new Error(`Yahoo responded with status ${response.status}.`)
-    }
-
-    const parsed = yahooSchema.safeParse(await response.json())
-    const result = parsed.success ? parsed.data.chart.result?.[0] : undefined
+    const result = await this.fetchChart(
+      `${symbol}?period1=${from}&period2=${to}&interval=1d`,
+    )
     if (!result?.timestamp) return []
 
     const closes = result.indicators.quote[0]?.close ?? []
@@ -87,42 +104,50 @@ export class YahooHistoricalPriceProvider implements HistoricalPriceProvider {
     return points
   }
 
-  /** Latest (near real-time) price, used for live FX. */
+  /** Latest price, used for live FX. */
   async getLatestPrice(symbol: string): Promise<number | null> {
     const quote = await this.getLatestQuote(symbol)
     return quote?.price ?? null
   }
 
-  /** Latest price + previous close from the Yahoo chart metadata. */
+  /**
+   * Latest price + previous close. Tries intraday first (near real-time) and
+   * falls back to the last daily closes for exchanges without intraday data.
+   */
   async getLatestQuote(
     symbol: string,
   ): Promise<{ price: number; previousClose: number } | null> {
-    const url = new URL(`${this.baseUrl}/${encodeURIComponent(symbol)}`)
-    url.searchParams.set('range', '1d')
-    url.searchParams.set('interval', '1m')
+    const intraday = await this.fetchChart(`${symbol}?range=1d&interval=1m`)
+    const intradayPrice = intraday?.meta?.regularMarketPrice
+    if (intradayPrice != null && intradayPrice > 0) {
+      return {
+        price: intradayPrice,
+        previousClose:
+          intraday?.meta?.previousClose ?? intraday?.meta?.chartPreviousClose ?? intradayPrice,
+      }
+    }
 
-    const response = await this.fetcher(url.toString(), {
+    const daily = await this.fetchChart(`${symbol}?range=1mo&interval=1d`)
+    const closes = (daily?.indicators.quote[0]?.close ?? []).filter(
+      (value): value is number => value != null && value > 0,
+    )
+    if (closes.length === 0) return null
+    const price = closes[closes.length - 1] as number
+    const previousClose = closes.length > 1 ? (closes[closes.length - 2] as number) : price
+    return { price, previousClose }
+  }
+
+  private async fetchChart(pathAndQuery: string): Promise<ChartResult[number] | undefined> {
+    const response = await this.fetcher(`${this.baseUrl}/${pathAndQuery}`, {
       headers: {
         accept: 'application/json',
         'user-agent': 'Mozilla/5.0 (compatible; MarketFlow/1.0)',
       },
       signal: AbortSignal.timeout(this.timeoutMs),
     })
-    if (!response.ok) return null
+    if (!response.ok) return undefined
 
     const parsed = yahooSchema.safeParse(await response.json())
-    const result = parsed.success ? parsed.data.chart.result?.[0] : undefined
-    if (!result) return null
-
-    const meta = result.meta
-    const price =
-      meta?.regularMarketPrice ??
-      (result.indicators.quote[0]?.close ?? []).filter(
-        (value): value is number => value != null && value > 0,
-      ).pop()
-    if (price == null || price <= 0) return null
-
-    const previousClose = meta?.previousClose ?? meta?.chartPreviousClose ?? price
-    return { price, previousClose }
+    return parsed.success ? parsed.data.chart.result?.[0] : undefined
   }
 }

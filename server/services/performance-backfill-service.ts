@@ -7,7 +7,7 @@ import type { AssetRepository } from '../repositories/asset-repository'
 import type { SnapshotRepository } from '../repositories/snapshot-repository'
 import type { TransactionRepository } from '../repositories/transaction-repository'
 import type { CurrencyConversionService } from './currency-conversion-service'
-import { isQuoteSupported } from './price-refresh-service'
+import { yahooSymbolFor } from './yahoo-historical-price-provider'
 
 const MAX_DAYS = 400
 const FX_SYMBOL = 'EURUSD=X'
@@ -49,9 +49,10 @@ export class PerformanceBackfillService {
 
     const closesByAsset = new Map<string, Map<string, number>>()
     for (const asset of assetMap.values()) {
-      if (!isQuoteSupported(asset)) continue
+      const yahooSymbol = yahooSymbolFor(asset)
+      if (!yahooSymbol) continue
       try {
-        const points = await this.historical.getDailyCloses(asset.symbol, fromDate, toDate)
+        const points = await this.historical.getDailyCloses(yahooSymbol, fromDate, toDate)
         closesByAsset.set(asset.id, new Map(points.map((p) => [p.date, p.close])))
       } catch (error) {
         console.warn('[backfill] history failed', asset.symbol, error)

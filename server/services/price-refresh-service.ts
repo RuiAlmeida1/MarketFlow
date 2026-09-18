@@ -4,6 +4,7 @@ import { addDays, toDateKey } from '../../shared/utils/date'
 import type { AssetRepository } from '../repositories/asset-repository'
 import type { HoldingRepository } from '../repositories/holding-repository'
 import type { PriceRepository } from '../repositories/price-repository'
+import { yahooSymbolFor } from './yahoo-historical-price-provider'
 
 export interface PriceRefreshSummary {
   readonly updated: number
@@ -66,12 +67,17 @@ export class PriceRefreshService {
     let failed = 0
 
     for (const asset of assetMap.values()) {
-      if (!isQuoteSupported(asset)) {
+      // Yahoo covers many exchanges; Finnhub (free) only US. Require at least
+      // one resolvable symbol.
+      const yahooSymbol = yahooSymbolFor(asset)
+      const finnhubSupported = isQuoteSupported(asset)
+      if (!yahooSymbol && !finnhubSupported) {
         skipped += 1
         continue
       }
+
       try {
-        const quote = await this.resolveQuote(asset.symbol)
+        const quote = await this.resolveQuote(yahooSymbol, asset)
         if (!quote || quote.price <= 0) {
           skipped += 1
           continue
@@ -105,18 +111,22 @@ export class PriceRefreshService {
   }
 
   private async resolveQuote(
-    symbol: string,
+    yahooSymbol: string | null,
+    asset: Asset,
   ): Promise<{ price: number; previousClose: number } | null> {
-    if (this.liveQuotes) {
+    if (this.liveQuotes && yahooSymbol) {
       try {
-        const live = await this.liveQuotes.getLatestQuote(symbol)
+        const live = await this.liveQuotes.getLatestQuote(yahooSymbol)
         if (live && live.price > 0) return live
       } catch (error) {
-        console.warn('[price-refresh] live quote failed, falling back', { symbol, error })
+        console.warn('[price-refresh] live quote failed, falling back', {
+          symbol: yahooSymbol,
+          error,
+        })
       }
     }
-    if (this.provider) {
-      const quote = await this.provider.getSymbolQuote(symbol)
+    if (this.provider && isQuoteSupported(asset)) {
+      const quote = await this.provider.getSymbolQuote(asset.symbol)
       if (quote && quote.price > 0) {
         return { price: quote.price, previousClose: quote.previousClose }
       }
