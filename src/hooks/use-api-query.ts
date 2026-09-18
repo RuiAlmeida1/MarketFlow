@@ -12,7 +12,11 @@ export interface ApiQueryResult<T> {
   data: T | null
   error: ApiClientError | null
   isLoading: boolean
+  /** True when revalidating in the background while data is already shown. */
+  isRefreshing: boolean
   refetch: () => void
+  /** Silent background revalidation that keeps the current data visible. */
+  refresh: () => void
 }
 
 const IDLE_SNAPSHOT: QuerySnapshot<never> = {
@@ -79,11 +83,19 @@ export function useApiQuery<T>(
     setReloadToken((token) => token + 1)
   }, [activeKey])
 
+  const refresh = useCallback(() => {
+    if (!activeKey) return
+    ensureQuery(activeKey, () => fetcherRef.current(), { force: true })
+  }, [activeKey])
+
   return {
     data: snapshot.data,
     error: snapshot.status === 'error' ? toApiClientError(snapshot.error) : null,
     isLoading:
-      activeKey !== null && (snapshot.status === 'loading' || snapshot.status === 'idle'),
+      activeKey !== null && snapshot.data === null && snapshot.status !== 'error',
+    isRefreshing:
+      activeKey !== null && snapshot.status === 'loading' && snapshot.data !== null,
     refetch,
+    refresh,
   }
 }

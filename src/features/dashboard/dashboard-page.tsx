@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ErrorBoundary } from '@/components/common/error-boundary'
 import { SectionCard } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -23,13 +23,24 @@ export function DashboardPage() {
     data,
     error,
     isLoading,
+    isRefreshing,
     refetch,
+    refresh,
     period,
     setPeriod,
     dimension,
     setDimension,
   } = useDashboard()
   const [refreshing, setRefreshing] = useState(false)
+
+  // Keep the dashboard near-live: revalidate every minute while visible.
+  useEffect(() => {
+    if (!data) return undefined
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === 'visible') refresh()
+    }, 60_000)
+    return () => window.clearInterval(interval)
+  }, [data, refresh])
 
   const handleRefresh = async () => {
     if (!data) return
@@ -79,6 +90,7 @@ export function DashboardPage() {
         onPeriodChange={setPeriod}
         onRefresh={handleRefresh}
         refreshing={refreshing}
+        liveRefreshing={isRefreshing}
       />
 
       <SummaryMetrics summary={data.summary} />

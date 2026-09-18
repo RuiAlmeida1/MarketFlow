@@ -1,5 +1,6 @@
 import type { Money } from '../../shared/domain'
 import type { PortfolioRepository } from '../repositories/portfolio-repository'
+import type { PriceRepository } from '../repositories/price-repository'
 import type { FxRateRefreshService } from './fx-rate-refresh-service'
 import type { HoldingsService } from './holdings-service'
 import type { PriceRefreshService, PriceRefreshSummary } from './price-refresh-service'
@@ -16,9 +17,17 @@ export interface GlobalSyncResult {
   readonly prices: PriceRefreshSummary
 }
 
+export interface StaleRefreshResult {
+  readonly refreshed: boolean
+  readonly prices?: PriceRefreshSummary
+}
+
+const DEFAULT_STALE_MS = 60_000
+
 /**
  * Rebuilds holdings from transactions and refreshes FX + live market prices.
- * Used by the on-demand sync endpoint and the scheduled cron trigger.
+ * Used by the on-demand sync endpoint, the scheduled cron trigger and the
+ * dashboard's background revalidation.
  */
 export class SyncService {
   constructor(
@@ -26,6 +35,7 @@ export class SyncService {
     private readonly holdings: HoldingsService,
     private readonly priceRefresh: PriceRefreshService,
     private readonly fxRefresh: FxRateRefreshService,
+    private readonly prices: PriceRepository,
   ) {}
 
   private async refreshRates(): Promise<void> {
@@ -34,6 +44,20 @@ export class SyncService {
     } catch (error) {
       console.warn('[sync] FX refresh failed', error)
     }
+  }
+
+  /**
+   * Refreshes prices only when the newest quote is older than `maxAgeMs`.
+   * Called on dashboard reads so the UI stays near-live without hammering the
+   * provider.
+   */
+  async refreshPricesIfStale(maxAgeMs: number = DEFAULT_STALE_MS): Promise<StaleRefreshResult> {
+    const latest = await this.prices.latestSourceTimestamp('finnhub')
+    if (latest && Date.now() - Date.parse(latest) < maxAgeMs) {
+      return { refreshed: false }
+    }
+    const prices = await this.priceRefresh.refreshTrackedAssets()
+    return { refreshed: true, prices }
   }
 
   async syncPortfolio(portfolioId: string): Promise<PortfolioSyncResult> {

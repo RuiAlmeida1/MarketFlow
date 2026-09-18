@@ -28,6 +28,7 @@ export interface PortfolioHeroProps {
   onPeriodChange: (period: PerformancePeriod) => void
   onRefresh?: () => void
   refreshing?: boolean
+  liveRefreshing?: boolean
 }
 
 export function PortfolioHero({
@@ -36,6 +37,7 @@ export function PortfolioHero({
   onPeriodChange,
   onRefresh,
   refreshing = false,
+  liveRefreshing = false,
 }: PortfolioHeroProps) {
   const returnTone = valueTone(summary.unrealizedReturnPercentage)
 
@@ -83,6 +85,15 @@ export function PortfolioHero({
             </div>
           </dl>
           <div className="flex items-center gap-2">
+            {liveRefreshing ? (
+              <span
+                className="flex items-center gap-1.5 text-[11px] text-subtle"
+                aria-live="polite"
+              >
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-positive" />
+                live
+              </span>
+            ) : null}
             <SegmentedControl
               options={PERIOD_OPTIONS}
               value={period}

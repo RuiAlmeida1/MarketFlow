@@ -95,6 +95,7 @@ export function createServices(env: Env): Services {
     holdingsService,
     priceRefreshService,
     fxRefreshService,
+    prices,
   )
   const dashboardService = new DashboardService(
     portfolioService,

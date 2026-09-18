@@ -1,5 +1,5 @@
 import type { AssetPriceRecord, Money } from '../../shared/domain'
-import { executeStatement, placeholders, queryAll } from '../db/client'
+import { executeStatement, placeholders, queryAll, queryFirst } from '../db/client'
 import { mapAssetPrice } from '../db/mappers'
 import type { AssetPriceRow } from '../db/rows'
 
@@ -61,6 +61,16 @@ export class PriceRepository {
       [assetId, limit],
     )
     return rows.map(mapAssetPrice)
+  }
+
+  /** Most recent timestamp for a given source, or null when none exists. */
+  async latestSourceTimestamp(source: string): Promise<string | null> {
+    const row = await queryFirst<{ latest: string | null }>(
+      this.db,
+      'SELECT MAX(timestamp) AS latest FROM asset_prices WHERE source = ?',
+      [source],
+    )
+    return row?.latest ?? null
   }
 
   /** Insert or update the single price for an (asset, day, source). */

@@ -49,16 +49,20 @@ function isFresh(snapshot: QuerySnapshot<unknown>, ttl: number): boolean {
 export function ensureQuery<T>(
   key: string,
   fetcher: () => Promise<T>,
-  ttl = DEFAULT_TTL_MS,
+  options: { force?: boolean; ttl?: number } = {},
 ): void {
+  const ttl = options.ttl ?? DEFAULT_TTL_MS
   const existing = cache.get(key) as QuerySnapshot<T> | undefined
-  if (existing) {
-    if (existing.status === 'loading') return
-    if (isFresh(existing, ttl)) return
+  if (!options.force) {
+    if (existing) {
+      if (existing.status === 'loading') return
+      if (isFresh(existing, ttl)) return
+    }
   }
 
   cache.set(key, {
     status: 'loading',
+    // Keep any previous data so a background refresh never blanks the UI.
     data: existing?.data ?? null,
     error: null,
     timestamp: existing?.timestamp ?? 0,

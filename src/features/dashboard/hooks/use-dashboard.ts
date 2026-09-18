@@ -2,15 +2,10 @@ import { useState } from 'react'
 import type { DashboardResponse, PerformancePeriod } from '@shared/api/contracts'
 import type { AllocationDimension } from '@shared/domain'
 import { usePortfolioSelection } from '@/app/portfolio-context'
-import { useApiQuery } from '@/hooks/use-api-query'
+import { useApiQuery, type ApiQueryResult } from '@/hooks/use-api-query'
 import { api } from '@/lib/api-client'
-import type { ApiClientError } from '@/lib/api-client'
 
-export interface UseDashboardResult {
-  data: DashboardResponse | null
-  error: ApiClientError | null
-  isLoading: boolean
-  refetch: () => void
+export interface UseDashboardResult extends ApiQueryResult<DashboardResponse> {
   period: PerformancePeriod
   setPeriod: (period: PerformancePeriod) => void
   dimension: AllocationDimension
