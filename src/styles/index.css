@@ -1,0 +1,146 @@
+@import 'tailwindcss';
+
+/* Class-based dark mode (theme resolved before paint in index.html). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --color-background: var(--mf-background);
+  --color-surface: var(--mf-surface);
+  --color-surface-hover: var(--mf-surface-hover);
+  --color-border: var(--mf-border);
+  --color-foreground: var(--mf-foreground);
+  --color-muted: var(--mf-muted);
+  --color-subtle: var(--mf-subtle);
+  --color-positive: var(--mf-positive);
+  --color-positive-soft: var(--mf-positive-soft);
+  --color-negative: var(--mf-negative);
+  --color-negative-soft: var(--mf-negative-soft);
+  --color-warning: var(--mf-warning);
+  --color-warning-soft: var(--mf-warning-soft);
+  --color-accent: var(--mf-accent);
+  --color-accent-soft: var(--mf-accent-soft);
+  --color-accent-foreground: var(--mf-accent-foreground);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-mono:
+    ui-monospace, 'SFMono-Regular', 'SF Mono', Menlo, Consolas, 'Liberation Mono',
+    monospace;
+
+  --radius-card: 0.875rem;
+}
+
+:root {
+  --mf-background: #f5f6f8;
+  --mf-surface: #ffffff;
+  --mf-surface-hover: #f1f3f6;
+  --mf-border: #e3e6ea;
+  --mf-foreground: #101828;
+  --mf-muted: #5b6472;
+  --mf-subtle: #98a2b3;
+  --mf-positive: #087443;
+  --mf-positive-soft: #e6f6ee;
+  --mf-negative: #b42318;
+  --mf-negative-soft: #fdecea;
+  --mf-warning: #b54708;
+  --mf-warning-soft: #fdf3e7;
+  --mf-accent: #1d5fd8;
+  --mf-accent-soft: #e8f0fe;
+  --mf-accent-foreground: #ffffff;
+  color-scheme: light;
+}
+
+.dark {
+  --mf-background: #0a0e13;
+  --mf-surface: #111823;
+  --mf-surface-hover: #18212e;
+  --mf-border: #222d3d;
+  --mf-foreground: #e8edf4;
+  --mf-muted: #9aa8bc;
+  --mf-subtle: #66748a;
+  --mf-positive: #3ddc97;
+  --mf-positive-soft: #10291f;
+  --mf-negative: #ff7a70;
+  --mf-negative-soft: #2c1614;
+  --mf-warning: #fdb022;
+  --mf-warning-soft: #2b2010;
+  --mf-accent: #5b9dff;
+  --mf-accent-soft: #14233b;
+  --mf-accent-foreground: #0a0e13;
+  color-scheme: dark;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .surface-shadow {
+    box-shadow:
+      0 1px 2px 0 rgb(16 24 40 / 0.04),
+      0 1px 3px 0 rgb(16 24 40 / 0.06);
+  }
+
+  .dark .surface-shadow {
+    box-shadow:
+      0 1px 2px 0 rgb(0 0 0 / 0.4),
+      0 1px 3px 0 rgb(0 0 0 / 0.3);
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+}
+
+@keyframes mf-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: mf-fade-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in {
+    animation: none;
+  }
+}
