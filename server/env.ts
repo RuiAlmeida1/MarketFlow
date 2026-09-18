@@ -9,6 +9,13 @@ export interface Env {
   readonly ASSETS: Fetcher
   readonly APP_ENV?: string
   /**
+   * Cloudflare Access (Zero Trust) configuration. When set, every request must
+   * carry a valid `Cf-Access-Jwt-Assertion` token. Both values are public
+   * (non-secret) and come from the Access application settings.
+   */
+  readonly ACCESS_TEAM_DOMAIN?: string
+  readonly ACCESS_AUD?: string
+  /**
    * Finnhub API key. Provided as a Worker secret in production
    * (`wrangler secret put FINNHUB_API_KEY`) and via `.dev.vars` locally.
    * When absent, the market data provider falls back to the mock.

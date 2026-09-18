@@ -25,5 +25,9 @@
   },
   "vars": {
     "APP_ENV": "production"
+    // Cloudflare Access (Zero Trust): set these from your Access application.
+    // Both are public values (not secrets).
+    // "ACCESS_TEAM_DOMAIN": "your-team.cloudflareaccess.com",
+    // "ACCESS_AUD": "your-access-application-aud"
   }
 }

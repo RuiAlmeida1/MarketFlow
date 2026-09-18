@@ -6,7 +6,7 @@
 -- ============================================================================
 
 INSERT OR IGNORE INTO users (id, email, display_name, base_currency) VALUES
-  ('user-dev-1', 'dev@marketflow.local', 'Development User', 'EUR');
+  ('user-dev-1', 'ruimiguelalmeida.090@gmail.com', 'Rui Almeida', 'EUR');
 
 INSERT OR IGNORE INTO portfolios (id, user_id, name, description, base_currency, is_default) VALUES
   ('portfolio-dev-1', 'user-dev-1', 'Main Portfolio', 'Development seed portfolio', 'EUR', 1),

@@ -15,6 +15,15 @@ export class UserRepository {
     return row ? mapUser(row) : null
   }
 
+  async findByEmail(email: string): Promise<User | null> {
+    const row = await queryFirst<UserRow>(
+      this.db,
+      'SELECT * FROM users WHERE email = ? LIMIT 1',
+      [email.trim().toLowerCase()],
+    )
+    return row ? mapUser(row) : null
+  }
+
   async findFirst(): Promise<User | null> {
     const row = await queryFirst<UserRow>(
       this.db,

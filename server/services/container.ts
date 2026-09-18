@@ -9,6 +9,7 @@ import { SnapshotRepository } from '../repositories/snapshot-repository'
 import { TransactionRepository } from '../repositories/transaction-repository'
 import { UserRepository } from '../repositories/user-repository'
 import { WatchlistRepository } from '../repositories/watchlist-repository'
+import { AccountService } from './account-service'
 import { CurrencyConversionService } from './currency-conversion-service'
 import { DashboardService } from './dashboard-service'
 import { DividendService } from './dividend-service'
@@ -20,6 +21,7 @@ import { WatchlistService } from './watchlist-service'
 
 export interface Services {
   readonly users: UserRepository
+  readonly accounts: AccountService
   readonly assets: AssetRepository
   readonly transactions: TransactionRepository
   readonly portfolios: PortfolioService
@@ -46,6 +48,7 @@ export function createServices(env: Env): Services {
   const snapshots = new SnapshotRepository(env.DB)
   const watchlists = new WatchlistRepository(env.DB)
   const users = new UserRepository(env.DB)
+  const accounts = new AccountService(env.DB, users)
 
   const conversion = new CurrencyConversionService(fxRates)
   const portfolioService = new PortfolioService(
@@ -75,6 +78,7 @@ export function createServices(env: Env): Services {
 
   return {
     users,
+    accounts,
     assets,
     transactions,
     portfolios: portfolioService,
