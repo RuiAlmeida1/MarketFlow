@@ -82,6 +82,18 @@ describe('projectPortfolio', () => {
     expect(holdings[0]?.averageCostPerShare?.minorUnits).toBe(20000)
   })
 
+  it('clears floating-point noise after a full fractional close', () => {
+    const { holdings } = projectPortfolio([
+      tx('a', 'BUY', 0.3333, 100, { date: '2026-01-01' }),
+      tx('a', 'BUY', 0.3333, 100, { date: '2026-01-02' }),
+      tx('a', 'BUY', 0.3334, 100, { date: '2026-01-03' }),
+      tx('a', 'SELL', 1, 110, { date: '2026-01-04' }),
+    ])
+    expect(holdings[0]?.quantity).toBe(0)
+    expect(holdings[0]?.totalCost.minorUnits).toBe(0)
+    expect(holdings[0]?.averageCostPerShare).toBeNull()
+  })
+
   it('groups multiple assets independently and aggregates realized per currency', () => {
     const { holdings, realizedGains } = projectPortfolio([
       tx('a', 'BUY', 1, 100, { date: '2026-01-01' }),

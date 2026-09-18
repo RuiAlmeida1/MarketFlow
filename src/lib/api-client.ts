@@ -5,6 +5,8 @@ import type {
   DividendsResponse,
   HealthResponse,
   HoldingsResponse,
+  ImportRequest,
+  ImportResponse,
   LoginRequest,
   LogoutResponse,
   MarketsResponse,
@@ -14,6 +16,8 @@ import type {
   PortfolioListResponse,
   SessionResponse,
   SyncResponse,
+  TransactionInputDto,
+  TransactionMutationResponse,
   TransactionsResponse,
   WatchlistsResponse,
 } from '@shared/api/contracts'
@@ -143,6 +147,43 @@ export const api = {
   syncPortfolio: (id: string) =>
     request<SyncResponse>(`/api/portfolios/${encodeURIComponent(id)}/sync`, {
       method: 'POST',
+    }),
+
+  createTransaction: (id: string, input: TransactionInputDto) =>
+    request<TransactionMutationResponse>(
+      `/api/portfolios/${encodeURIComponent(id)}/transactions`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    ),
+
+  updateTransaction: (
+    id: string,
+    transactionId: string,
+    input: Partial<TransactionInputDto>,
+  ) =>
+    request<TransactionMutationResponse>(
+      `/api/portfolios/${encodeURIComponent(id)}/transactions/${encodeURIComponent(transactionId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    ),
+
+  deleteTransaction: (id: string, transactionId: string) =>
+    request<null>(
+      `/api/portfolios/${encodeURIComponent(id)}/transactions/${encodeURIComponent(transactionId)}`,
+      { method: 'DELETE' },
+    ),
+
+  importTransactions: (id: string, payload: ImportRequest) =>
+    request<ImportResponse>(`/api/portfolios/${encodeURIComponent(id)}/import`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
     }),
 
   watchlists: () => request<WatchlistsResponse>('/api/watchlists'),

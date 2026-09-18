@@ -1,12 +1,27 @@
-import type { Transaction } from '../../shared/domain'
-import { queryAll } from '../db/client'
+import type { CurrencyCode, Transaction, TransactionType } from '../../shared/domain'
+import { DatabaseError } from '../../shared/domain/errors'
+import { executeStatement, queryAll, queryFirst } from '../db/client'
 import { mapTransaction } from '../db/mappers'
 import type { TransactionRow } from '../db/rows'
+
+export interface TransactionWrite {
+  readonly portfolioId: string
+  readonly assetId: string | null
+  readonly transactionType: TransactionType
+  readonly quantity: number
+  readonly priceMinor: number
+  readonly feesMinor: number
+  readonly taxesMinor: number
+  readonly currency: CurrencyCode
+  readonly exchangeRate: number
+  readonly transactionDate: string
+  readonly notes: string | null
+}
 
 export class TransactionRepository {
   constructor(private readonly db: D1Database) {}
 
-  async listByPortfolio(portfolioId: string, limit = 500): Promise<Transaction[]> {
+  async listByPortfolio(portfolioId: string, limit = 2000): Promise<Transaction[]> {
     const rows = await queryAll<TransactionRow>(
       this.db,
       `SELECT * FROM transactions
@@ -30,5 +45,102 @@ export class TransactionRepository {
       [portfolioId, assetId],
     )
     return rows.map(mapTransaction)
+  }
+
+  async findById(id: string): Promise<Transaction | null> {
+    const row = await queryFirst<TransactionRow>(
+      this.db,
+      'SELECT * FROM transactions WHERE id = ? LIMIT 1',
+      [id],
+    )
+    return row ? mapTransaction(row) : null
+  }
+
+  async create(input: TransactionWrite): Promise<Transaction> {
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+    await executeStatement(
+      this.db,
+      `INSERT INTO transactions
+         (id, portfolio_id, asset_id, transaction_type, quantity, price_minor, fees_minor,
+          taxes_minor, currency, exchange_rate, transaction_date, notes, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        id,
+        input.portfolioId,
+        input.assetId,
+        input.transactionType,
+        input.quantity,
+        input.priceMinor,
+        input.feesMinor,
+        input.taxesMinor,
+        input.currency,
+        input.exchangeRate,
+        input.transactionDate,
+        input.notes,
+        now,
+        now,
+      ],
+    )
+    const created = await this.findById(id)
+    if (!created) throw new DatabaseError()
+    return created
+  }
+
+  async update(
+    id: string,
+    input: Partial<Omit<TransactionWrite, 'portfolioId'>>,
+  ): Promise<Transaction> {
+    const current = await this.findById(id)
+    if (!current) throw new DatabaseError('Transaction disappeared during update.')
+
+    const merged: Omit<TransactionWrite, 'portfolioId'> = {
+      assetId: input.assetId !== undefined ? input.assetId : current.assetId,
+      transactionType: input.transactionType ?? current.transactionType,
+      quantity: input.quantity ?? current.quantity,
+      priceMinor: input.priceMinor ?? current.price.minorUnits,
+      feesMinor: input.feesMinor ?? current.fees.minorUnits,
+      taxesMinor: input.taxesMinor ?? current.taxes.minorUnits,
+      currency: input.currency ?? current.price.currency,
+      exchangeRate: input.exchangeRate ?? current.exchangeRate,
+      transactionDate: input.transactionDate ?? current.transactionDate,
+      notes: input.notes !== undefined ? input.notes : current.notes,
+    }
+
+    await executeStatement(
+      this.db,
+      `UPDATE transactions SET
+         asset_id = ?, transaction_type = ?, quantity = ?, price_minor = ?, fees_minor = ?,
+         taxes_minor = ?, currency = ?, exchange_rate = ?, transaction_date = ?, notes = ?,
+         updated_at = ?
+       WHERE id = ?`,
+      [
+        merged.assetId,
+        merged.transactionType,
+        merged.quantity,
+        merged.priceMinor,
+        merged.feesMinor,
+        merged.taxesMinor,
+        merged.currency,
+        merged.exchangeRate,
+        merged.transactionDate,
+        merged.notes,
+        new Date().toISOString(),
+        id,
+      ],
+    )
+    const updated = await this.findById(id)
+    if (!updated) throw new DatabaseError()
+    return updated
+  }
+
+  async delete(id: string): Promise<void> {
+    await executeStatement(this.db, 'DELETE FROM transactions WHERE id = ?', [id])
+  }
+
+  async deleteByPortfolio(portfolioId: string): Promise<void> {
+    await executeStatement(this.db, 'DELETE FROM transactions WHERE portfolio_id = ?', [
+      portfolioId,
+    ])
   }
 }

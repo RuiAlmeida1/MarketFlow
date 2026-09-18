@@ -13,6 +13,12 @@ import {
   syncPortfolio,
 } from './portfolios'
 import { getMarkets, getMe, listWatchlists, searchAssets } from './reference'
+import {
+  createTransaction,
+  deleteTransaction,
+  importTransactions,
+  updateTransaction,
+} from './transactions'
 
 export function createRouter(): Router {
   const router = new Router()
@@ -33,6 +39,11 @@ export function createRouter(): Router {
   router.get('/api/portfolios/:id/performance', getPerformance)
   router.get('/api/portfolios/:id/allocation', getAllocation)
   router.post('/api/portfolios/:id/sync', syncPortfolio)
+
+  router.post('/api/portfolios/:id/transactions', createTransaction)
+  router.patch('/api/portfolios/:id/transactions/:transactionId', updateTransaction)
+  router.delete('/api/portfolios/:id/transactions/:transactionId', deleteTransaction)
+  router.post('/api/portfolios/:id/import', importTransactions)
 
   router.get('/api/watchlists', listWatchlists)
   router.get('/api/markets', getMarkets)

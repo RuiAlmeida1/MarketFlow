@@ -49,6 +49,14 @@ export class Router {
     return this.add('POST', path, handler)
   }
 
+  patch(path: string, handler: RouteHandler): this {
+    return this.add('PATCH', path, handler)
+  }
+
+  delete(path: string, handler: RouteHandler): this {
+    return this.add('DELETE', path, handler)
+  }
+
   match(method: string, pathname: string): RouteMatch | null {
     for (const route of this.routes) {
       if (route.method !== method) continue

@@ -1,5 +1,5 @@
 import type { DividendPayment } from '../../shared/domain'
-import { queryAll } from '../db/client'
+import { executeStatement, queryAll } from '../db/client'
 import { mapDividend } from '../db/mappers'
 import type { DividendRow } from '../db/rows'
 
@@ -33,5 +33,13 @@ export class DividendRepository {
       [portfolioId, fromDate, limit],
     )
     return rows.map(mapDividend)
+  }
+
+  async deleteByPortfolio(portfolioId: string): Promise<void> {
+    await executeStatement(
+      this.db,
+      'DELETE FROM dividend_payments WHERE portfolio_id = ?',
+      [portfolioId],
+    )
   }
 }

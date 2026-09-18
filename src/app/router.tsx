@@ -8,6 +8,7 @@ import {
   DashboardPage,
   DividendsPage,
   HelpPage,
+  ImportPage,
   MarketsPage,
   PortfolioPage,
   ProfilePage,
@@ -61,12 +62,7 @@ export const router = createBrowserRouter([
       },
       {
         path: 'import',
-        element: (
-          <PlaceholderPage
-            title="Import"
-            description="CSV and broker imports (Trading 212, XTB, Plaid) are planned for a later phase."
-          />
-        ),
+        element: <ImportPage />,
       },
       { path: '*', element: <NotFoundPage /> },
     ],

@@ -80,18 +80,26 @@ export function buildHoldings(context: PortfolioContext): HoldingDto[] {
   const { portfolio, positions, fx } = context
   const valuation = calculatePortfolioValuation(positions, portfolio.baseCurrency, fx)
 
-  return valuation.positions.map((priced) => ({
-    asset: priced.position.asset,
-    quantity: priced.position.quantity,
-    averageCostPerShare: priced.position.averageCostPerShare,
-    totalCost: priced.position.totalCost,
-    lastPrice: priced.position.lastPrice,
-    marketValue: priced.marketValue,
-    cost: priced.cost,
-    absoluteReturn: subtractMoney(priced.marketValue, priced.cost),
-    returnPercentage: calculateReturnPercentage(priced.cost, priced.marketValue),
-    weight: calculatePositionWeight(priced.marketValue, valuation.marketValue),
-  }))
+  return valuation.positions.map((priced) => {
+    const hasPrice = priced.position.lastPrice !== null
+    return {
+      asset: priced.position.asset,
+      quantity: priced.position.quantity,
+      averageCostPerShare: priced.position.averageCostPerShare,
+      totalCost: priced.position.totalCost,
+      lastPrice: priced.position.lastPrice,
+      marketValue: priced.marketValue,
+      cost: priced.cost,
+      // Without a price, a return percentage would be meaningless (not -100%).
+      absoluteReturn: hasPrice
+        ? subtractMoney(priced.marketValue, priced.cost)
+        : zero(priced.cost.currency),
+      returnPercentage: hasPrice
+        ? calculateReturnPercentage(priced.cost, priced.marketValue)
+        : 0,
+      weight: calculatePositionWeight(priced.marketValue, valuation.marketValue),
+    }
+  })
 }
 
 export function buildAllocation(

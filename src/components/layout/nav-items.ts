@@ -36,6 +36,7 @@ export const PRIMARY_NAV: readonly NavItem[] = [
 ]
 
 export const SECONDARY_NAV: readonly NavItem[] = [
+  { label: 'Import', to: '/import', icon: Upload },
   { label: 'Settings', to: '/settings', icon: Settings },
   { label: 'Help', to: '/help', icon: LifeBuoy },
   { label: 'Profile', to: '/profile', icon: User },
@@ -44,7 +45,6 @@ export const SECONDARY_NAV: readonly NavItem[] = [
 export const UPCOMING_NAV: readonly NavItem[] = [
   { label: 'Reports', to: '/reports', icon: ChartNoAxesCombined, upcoming: true },
   { label: 'Goals', to: '/goals', icon: Target, upcoming: true },
-  { label: 'Import', to: '/import', icon: Upload, upcoming: true },
 ]
 
 export const ALL_NAV_ITEMS: readonly NavItem[] = [

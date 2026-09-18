@@ -38,6 +38,20 @@ function sortByDate(transactions: readonly Transaction[]): Transaction[] {
   })
 }
 
+/**
+ * Only these types affect the cost basis / quantity. Cash events (dividends,
+ * taxes, fees, deposits, ...) are ignored here so their settlement currency
+ * never mixes with the instrument currency.
+ */
+const POSITION_TYPES = new Set(['BUY', 'SELL', 'TRANSFER_IN', 'TRANSFER_OUT', 'SPLIT'])
+
+/** Quantities below this are floating-point noise from repeated arithmetic. */
+const QUANTITY_EPSILON = 1e-9
+
+export function isPositionTransaction(transactionType: string): boolean {
+  return POSITION_TYPES.has(transactionType)
+}
+
 function projectAsset(assetId: string, transactions: readonly Transaction[]): HoldingProjection {
   const currency = transactions[0]?.price.currency
   if (!currency) {
@@ -85,7 +99,7 @@ function projectAsset(assetId: string, transactions: readonly Transaction[]): Ho
       realizedGains = addMoney(realizedGains, subtractMoney(proceeds, costRemoved))
       totalCost = subtractMoney(totalCost, costRemoved)
       quantity -= sellQuantity
-      if (quantity <= 0) {
+      if (quantity < QUANTITY_EPSILON) {
         quantity = 0
         totalCost = zero(currency)
       }
@@ -93,11 +107,14 @@ function projectAsset(assetId: string, transactions: readonly Transaction[]): Ho
     // SPLIT and cash movements do not affect the cost basis here.
   }
 
+  const normalizedQuantity = Math.abs(quantity) < QUANTITY_EPSILON ? 0 : quantity
+
   return {
     assetId,
-    quantity,
-    totalCost,
-    averageCostPerShare: quantity > 0 ? divideMoney(totalCost, quantity) : null,
+    quantity: normalizedQuantity,
+    totalCost: normalizedQuantity === 0 ? zero(currency) : totalCost,
+    averageCostPerShare:
+      normalizedQuantity > 0 ? divideMoney(totalCost, normalizedQuantity) : null,
     realizedGains,
     currency,
   }
@@ -111,6 +128,7 @@ export function projectPortfolio(transactions: readonly Transaction[]): Portfoli
   const byAsset = new Map<string, Transaction[]>()
   for (const transaction of transactions) {
     if (!transaction.assetId) continue
+    if (!POSITION_TYPES.has(transaction.transactionType)) continue
     const group = byAsset.get(transaction.assetId) ?? []
     group.push(transaction)
     byAsset.set(transaction.assetId, group)

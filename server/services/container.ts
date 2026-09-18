@@ -20,6 +20,7 @@ import { PerformanceService } from './performance-service'
 import { PortfolioService } from './portfolio-service'
 import { PriceRefreshService } from './price-refresh-service'
 import { SyncService } from './sync-service'
+import { TransactionService } from './transaction-service'
 import { WatchlistService } from './watchlist-service'
 
 export interface Services {
@@ -27,6 +28,7 @@ export interface Services {
   readonly accounts: AccountService
   readonly assets: AssetRepository
   readonly transactions: TransactionRepository
+  readonly transactionsService: TransactionService
   readonly portfolios: PortfolioService
   readonly dividends: DividendService
   readonly performance: PerformanceService
@@ -72,6 +74,12 @@ export function createServices(env: Env): Services {
     : null
   const marketService = new MarketDataService(finnhub ?? new MockMarketDataProvider())
   const holdingsService = new HoldingsService(transactions, holdings)
+  const transactionService = new TransactionService(
+    assets,
+    transactions,
+    dividends,
+    holdingsService,
+  )
   const priceRefreshService = new PriceRefreshService(
     finnhub,
     assets,
@@ -93,6 +101,7 @@ export function createServices(env: Env): Services {
     accounts,
     assets,
     transactions,
+    transactionsService: transactionService,
     portfolios: portfolioService,
     dividends: dividendService,
     performance: performanceService,

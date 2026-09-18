@@ -75,3 +75,9 @@ export const HelpPage = lazy(() =>
     default: module.HelpPage,
   })),
 )
+
+export const ImportPage = lazy(() =>
+  import('@/features/import/import-page').then((module) => ({
+    default: module.ImportPage,
+  })),
+)

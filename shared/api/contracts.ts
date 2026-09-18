@@ -8,6 +8,7 @@ import type {
   Money,
   Portfolio,
   Transaction,
+  TransactionType,
   User,
 } from '../domain'
 import type { ValueChange } from '../domain/portfolio/valuation'
@@ -163,6 +164,36 @@ export interface SyncResponse {
     readonly skipped: number
     readonly failed: number
   }
+}
+
+export interface TransactionInputDto {
+  readonly assetId?: string | null
+  readonly symbol?: string | null
+  readonly exchange?: string | null
+  readonly transactionType: TransactionType
+  readonly quantity: number
+  /** Price per share in major units (converted to minor units server-side). */
+  readonly price: number
+  readonly fees?: number
+  readonly taxes?: number
+  readonly currency: CurrencyCode
+  readonly exchangeRate?: number
+  readonly transactionDate: string
+  readonly notes?: string | null
+}
+
+export interface TransactionMutationResponse {
+  readonly transaction: Transaction
+}
+
+export interface ImportRequest {
+  readonly mode: 'append' | 'replace'
+  readonly transactions: readonly TransactionInputDto[]
+}
+
+export interface ImportResponse {
+  readonly inserted: number
+  readonly mode: 'append' | 'replace'
 }
 
 export interface HoldingsResponse {
