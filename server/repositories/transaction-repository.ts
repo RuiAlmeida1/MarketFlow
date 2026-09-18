@@ -151,11 +151,14 @@ export class TransactionRepository {
    * faster than issuing one statement per row (used by imports).
    */
   async insertMany(writes: readonly TransactionWrite[]): Promise<number> {
-    const now = new Date().toISOString()
+    const base = Date.now()
     for (let offset = 0; offset < writes.length; offset += INSERT_CHUNK_SIZE) {
       const chunk = writes.slice(offset, offset + INSERT_CHUNK_SIZE)
-      const statements = chunk.map((input) =>
-        this.db
+      const statements = chunk.map((input, index) => {
+        // Strictly increasing timestamps preserve the intended order of
+        // same-day events (e.g. a BUY and its SELL) when replaying.
+        const createdAt = new Date(base + offset + index).toISOString()
+        return this.db
           .prepare(
             `INSERT INTO transactions
                (id, portfolio_id, asset_id, transaction_type, quantity, price_minor, fees_minor,
@@ -175,10 +178,10 @@ export class TransactionRepository {
             input.exchangeRate,
             input.transactionDate,
             input.notes,
-            now,
-            now,
-          ),
-      )
+            createdAt,
+            createdAt,
+          )
+      })
       await executeBatch(this.db, statements)
     }
     return writes.length

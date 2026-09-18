@@ -57,12 +57,18 @@ export function buildPortfolioSummary(
     fx,
   )
 
+  // Without any priced position, a return percentage of -100% would be
+  // misleading; report 0 until prices are available.
+  const hasPrices = valuation.pricedPositions > 0
+
   return {
     baseCurrency,
     marketValue: valuation.marketValue,
     investedCapital: valuation.investedCapital,
     unrealizedReturn: valuation.unrealizedReturn,
-    unrealizedReturnPercentage: valuation.unrealizedReturnPercentage,
+    unrealizedReturnPercentage: hasPrices
+      ? valuation.unrealizedReturnPercentage
+      : 0,
     dailyChange: calculateValueChange(
       valuation.marketValue,
       previousValuation.marketValue,

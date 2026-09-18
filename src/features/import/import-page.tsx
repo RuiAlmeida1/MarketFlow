@@ -90,6 +90,13 @@ export function ImportPage() {
         })),
       })
       invalidate(/^(transactions|holdings|dashboard|performance|allocation)/)
+      // Refresh live prices so the dashboard shows values immediately.
+      try {
+        await api.syncPortfolio(portfolio.id)
+      } catch (syncError) {
+        console.error('[import] post-import price sync failed', syncError)
+      }
+      invalidate(/^(markets|dashboard|holdings)/)
       setSuccess(
         `${result.inserted} transações importadas (${mode === 'replace' ? 'substituição' : 'adição'}).`,
       )
