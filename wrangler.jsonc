@@ -16,7 +16,7 @@
     {
       "binding": "DB",
       "database_name": "marketflow-db",
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "e1b637e6-d671-4188-bb26-6954a2fcbf16",
       "migrations_dir": "migrations"
     }
   ],
