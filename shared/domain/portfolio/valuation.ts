@@ -104,12 +104,15 @@ export function valuePosition(
       ? calculatePositionCost(position.quantity, position.averageCostPerShare)
       : null)
 
-  const marketConversion = rawMarketValue
-    ? convertWithResolver(rawMarketValue, baseCurrency, fx, asOf)
-    : { value: zero(baseCurrency), ok: false }
   const costConversion = rawCost
     ? convertWithResolver(rawCost, baseCurrency, fx, asOf)
     : { value: zero(baseCurrency), ok: false }
+
+  // When there is no price, value the position at cost so an unpriced asset
+  // does not fabricate a loss. `hasPrice` still tells callers it is missing.
+  const marketConversion = rawMarketValue
+    ? convertWithResolver(rawMarketValue, baseCurrency, fx, asOf)
+    : costConversion
 
   return {
     position,
@@ -117,7 +120,7 @@ export function valuePosition(
     cost: costConversion.value,
     hasPrice: rawMarketValue !== null,
     hasCost: rawCost !== null,
-    hasFx: marketConversion.ok && costConversion.ok,
+    hasFx: rawMarketValue !== null ? marketConversion.ok && costConversion.ok : costConversion.ok,
   }
 }
 

@@ -75,6 +75,24 @@ describe('projectPortfolio', () => {
     expect(holding?.realizedGains.minorUnits).toBe(-4000)
   })
 
+  it('uses FIFO lots (matches XTB open-position cost)', () => {
+    const { holdings } = projectPortfolio([
+      tx('a', 'BUY', 1, 60.36, { date: '2025-09-29' }),
+      tx('a', 'BUY', 1, 57.48, { date: '2025-12-02' }),
+      tx('a', 'BUY', 3, 57.48, { date: '2025-12-02' }),
+      tx('a', 'BUY', 5, 67.42, { date: '2026-02-27' }),
+      tx('a', 'SELL', 1, 60.66, { date: '2026-03-27' }),
+      tx('a', 'BUY', 1, 63.14, { date: '2026-04-29' }),
+      tx('a', 'SELL', 1, 62.33, { date: '2026-05-26' }),
+      tx('a', 'BUY', 1, 61.17, { date: '2026-05-29' }),
+    ])
+    const holding = holdings[0]
+    expect(holding?.quantity).toBe(10)
+    // Remaining lots: 3@57.48 + 5@67.42 + 1@63.14 + 1@61.17 = 633.85
+    expect(holding?.totalCost.minorUnits).toBe(63385)
+    expect(holding?.averageCostPerShare?.minorUnits).toBe(6339)
+  })
+
   it('supports fractional shares', () => {
     const { holdings } = projectPortfolio([tx('a', 'BUY', 0.5, 200, { date: '2026-01-01' })])
     expect(holdings[0]?.quantity).toBe(0.5)

@@ -3,16 +3,16 @@ import type { CurrencyCode } from '../money/currency'
 import {
   type Money,
   addMoney,
-  divideMoney,
+  money,
   multiplyMoney,
-  subtractMoney,
+  roundHalfAwayFromZero,
   zero,
 } from '../money/money'
 import type { Transaction } from '../transactions/transaction'
 
 /**
- * Per-asset projection derived purely by replaying transactions with the
- * moving-average cost method. Holdings in the database are a cache of this.
+ * Per-asset projection derived purely by replaying transactions with the FIFO
+ * (lot) method, which matches how brokers such as XTB report open positions.
  */
 export interface HoldingProjection {
   readonly assetId: string
@@ -28,6 +28,9 @@ export interface PortfolioProjection {
   /** Realized gains grouped by currency (one entry per currency). */
   readonly realizedGains: readonly Money[]
 }
+
+/** Quantities below this are floating-point noise from repeated arithmetic. */
+const QUANTITY_EPSILON = 1e-9
 
 function sortByDate(transactions: readonly Transaction[]): Transaction[] {
   return [...transactions].sort((a, b) => {
@@ -45,29 +48,36 @@ function sortByDate(transactions: readonly Transaction[]): Transaction[] {
  */
 const POSITION_TYPES = new Set(['BUY', 'SELL', 'TRANSFER_IN', 'TRANSFER_OUT', 'SPLIT'])
 
-/** Quantities below this are floating-point noise from repeated arithmetic. */
-const QUANTITY_EPSILON = 1e-9
-
 export function isPositionTransaction(transactionType: string): boolean {
   return POSITION_TYPES.has(transactionType)
 }
 
-function projectAsset(assetId: string, transactions: readonly Transaction[]): HoldingProjection {
-  const currency = transactions[0]?.price.currency
-  if (!currency) {
-    return {
-      assetId,
-      quantity: 0,
-      totalCost: zero('EUR'),
-      averageCostPerShare: null,
-      realizedGains: zero('EUR'),
-      currency: 'EUR',
-    }
-  }
+interface Lot {
+  quantity: number
+  /** Remaining cost of this lot in minor units (asset currency). */
+  costMinor: number
+}
 
-  let quantity = 0
-  let totalCost = zero(currency)
-  let realizedGains = zero(currency)
+function emptyProjection(assetId: string): HoldingProjection {
+  return {
+    assetId,
+    quantity: 0,
+    totalCost: zero('EUR'),
+    averageCostPerShare: null,
+    realizedGains: zero('EUR'),
+    currency: 'EUR',
+  }
+}
+
+function projectAsset(
+  assetId: string,
+  transactions: readonly Transaction[],
+): HoldingProjection {
+  const currency = transactions[0]?.price.currency
+  if (!currency) return emptyProjection(assetId)
+
+  const lots: Lot[] = []
+  let realized = zero(currency)
 
   for (const transaction of sortByDate(transactions)) {
     if (
@@ -79,50 +89,66 @@ function projectAsset(assetId: string, transactions: readonly Transaction[]): Ho
     }
 
     if (transaction.transactionType === 'BUY' || transaction.transactionType === 'TRANSFER_IN') {
-      const acquisition = addMoney(
+      const lotCost = addMoney(
         multiplyMoney(transaction.price, transaction.quantity),
         addMoney(transaction.fees, transaction.taxes),
       )
-      totalCost = addMoney(totalCost, acquisition)
-      quantity += transaction.quantity
+      lots.push({ quantity: transaction.quantity, costMinor: lotCost.minorUnits })
       continue
     }
 
     if (transaction.transactionType === 'SELL' || transaction.transactionType === 'TRANSFER_OUT') {
-      const sellQuantity = Math.abs(transaction.quantity)
-      const average = quantity > 0 ? divideMoney(totalCost, quantity) : zero(currency)
-      const costRemoved = multiplyMoney(average, sellQuantity)
-      const proceeds = subtractMoney(
-        multiplyMoney(transaction.price, sellQuantity),
-        addMoney(transaction.fees, transaction.taxes),
-      )
-      realizedGains = addMoney(realizedGains, subtractMoney(proceeds, costRemoved))
-      totalCost = subtractMoney(totalCost, costRemoved)
-      quantity -= sellQuantity
-      if (quantity < QUANTITY_EPSILON) {
-        quantity = 0
-        totalCost = zero(currency)
+      let remaining = Math.abs(transaction.quantity)
+      if (remaining <= QUANTITY_EPSILON) continue
+
+      const proceedsMinor = multiplyMoney(transaction.price, remaining).minorUnits
+      const sellFeesMinor = addMoney(transaction.fees, transaction.taxes).minorUnits
+      let costRemoved = 0
+
+      // FIFO: consume the oldest lots first.
+      while (remaining > QUANTITY_EPSILON && lots.length > 0) {
+        const lot = lots[0]
+        if (!lot) break
+        const consumed = Math.min(lot.quantity, remaining)
+        const share = consumed / lot.quantity
+        const removed = roundHalfAwayFromZero(lot.costMinor * share)
+        lot.costMinor -= removed
+        costRemoved += removed
+        lot.quantity -= consumed
+        remaining -= consumed
+        if (lot.quantity <= QUANTITY_EPSILON) lots.shift()
       }
+
+      const gain = proceedsMinor - sellFeesMinor - costRemoved
+      realized = addMoney(realized, money(gain, currency))
     }
-    // SPLIT and cash movements do not affect the cost basis here.
+    // SPLIT is handled at import time.
   }
 
+  let quantity = 0
+  let totalCostMinor = 0
+  for (const lot of lots) {
+    quantity += lot.quantity
+    totalCostMinor += lot.costMinor
+  }
   const normalizedQuantity = Math.abs(quantity) < QUANTITY_EPSILON ? 0 : quantity
 
   return {
     assetId,
     quantity: normalizedQuantity,
-    totalCost: normalizedQuantity === 0 ? zero(currency) : totalCost,
+    totalCost: normalizedQuantity === 0 ? zero(currency) : money(totalCostMinor, currency),
     averageCostPerShare:
-      normalizedQuantity > 0 ? divideMoney(totalCost, normalizedQuantity) : null,
-    realizedGains,
+      normalizedQuantity > 0
+        ? money(roundHalfAwayFromZero(totalCostMinor / normalizedQuantity), currency)
+        : null,
+    realizedGains: realized,
     currency,
   }
 }
 
 /**
- * Replays transactions into holdings. Transactions are the source of truth;
- * `portfolio_holdings` must always be reconstructable from this.
+ * Replays transactions into holdings using FIFO lots. Transactions are the
+ * source of truth; `portfolio_holdings` must always be reconstructable.
  */
 export function projectPortfolio(transactions: readonly Transaction[]): PortfolioProjection {
   const byAsset = new Map<string, Transaction[]>()

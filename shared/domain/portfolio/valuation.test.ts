@@ -52,7 +52,7 @@ describe('portfolio valuation', () => {
     expect(valuation.investedCapital.minorUnits).toBe(45000)
   })
 
-  it('flags missing prices without throwing and without inventing value', () => {
+  it('flags missing prices and values the position at cost (no fabricated loss)', () => {
     const position = makePosition({
       asset: { currency: 'USD' },
       quantity: 3,
@@ -60,7 +60,9 @@ describe('portfolio valuation', () => {
       lastPrice: null,
     })
     const valuation = calculatePortfolioValuation([position], 'USD', identityFxResolver)
-    expect(valuation.marketValue.minorUnits).toBe(0)
+    // 3 shares * 10 USD = 30, so the unpriced position is neutral.
+    expect(valuation.marketValue.minorUnits).toBe(3000)
+    expect(valuation.unrealizedReturn.minorUnits).toBe(0)
     expect(valuation.pricedPositions).toBe(0)
     expect(valuation.missingPrices).toHaveLength(1)
   })
