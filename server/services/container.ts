@@ -15,6 +15,7 @@ import { DashboardService } from './dashboard-service'
 import { DividendProjectionService } from './dividend-projection-service'
 import { DividendService } from './dividend-service'
 import { FinnhubMarketDataProvider } from './finnhub-market-data-provider'
+import { FxRateRefreshService } from './fx-rate-refresh-service'
 import { HoldingsService } from './holdings-service'
 import { MarketDataService, MockMarketDataProvider } from './market-data-service'
 import { PerformanceService } from './performance-service'
@@ -88,7 +89,13 @@ export function createServices(env: Env): Services {
     holdings,
     prices,
   )
-  const syncService = new SyncService(portfolios, holdingsService, priceRefreshService)
+  const fxRefreshService = new FxRateRefreshService(fxRates)
+  const syncService = new SyncService(
+    portfolios,
+    holdingsService,
+    priceRefreshService,
+    fxRefreshService,
+  )
   const dashboardService = new DashboardService(
     portfolioService,
     dividendService,

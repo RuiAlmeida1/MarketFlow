@@ -1,5 +1,6 @@
 import type { Money } from '../../shared/domain'
 import type { PortfolioRepository } from '../repositories/portfolio-repository'
+import type { FxRateRefreshService } from './fx-rate-refresh-service'
 import type { HoldingsService } from './holdings-service'
 import type { PriceRefreshService, PriceRefreshSummary } from './price-refresh-service'
 
@@ -16,18 +17,28 @@ export interface GlobalSyncResult {
 }
 
 /**
- * Rebuilds holdings from transactions and refreshes live market prices. Used by
- * the on-demand sync endpoint and the scheduled cron trigger.
+ * Rebuilds holdings from transactions and refreshes FX + live market prices.
+ * Used by the on-demand sync endpoint and the scheduled cron trigger.
  */
 export class SyncService {
   constructor(
     private readonly portfolios: PortfolioRepository,
     private readonly holdings: HoldingsService,
     private readonly priceRefresh: PriceRefreshService,
+    private readonly fxRefresh: FxRateRefreshService,
   ) {}
+
+  private async refreshRates(): Promise<void> {
+    try {
+      await this.fxRefresh.refresh()
+    } catch (error) {
+      console.warn('[sync] FX refresh failed', error)
+    }
+  }
 
   async syncPortfolio(portfolioId: string): Promise<PortfolioSyncResult> {
     const rebuild = await this.holdings.rebuild(portfolioId)
+    await this.refreshRates()
     const prices = await this.priceRefresh.refreshTrackedAssets()
     return {
       portfolioId,
@@ -42,6 +53,7 @@ export class SyncService {
     for (const portfolio of portfolios) {
       await this.holdings.rebuild(portfolio.id)
     }
+    await this.refreshRates()
     const prices = await this.priceRefresh.refreshTrackedAssets()
     return { portfolios: portfolios.length, prices }
   }

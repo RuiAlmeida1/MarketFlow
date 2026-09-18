@@ -1,7 +1,17 @@
 import type { ExchangeRate } from '../../shared/domain'
-import { queryAll } from '../db/client'
+import type { CurrencyCode } from '../../shared/domain'
+import { executeStatement, queryAll } from '../db/client'
 import { mapFxRate } from '../db/mappers'
 import type { FxRateRow } from '../db/rows'
+
+export interface FxRateWrite {
+  readonly base: CurrencyCode
+  readonly quote: CurrencyCode
+  readonly rate: number
+  readonly rateDate: string
+  readonly timestamp: string
+  readonly source: string
+}
 
 export class FxRateRepository {
   constructor(private readonly db: D1Database) {}
@@ -21,5 +31,26 @@ export class FxRateRepository {
        WHERE rn = 1`,
     )
     return rows.map(mapFxRate)
+  }
+
+  async upsertRate(input: FxRateWrite): Promise<void> {
+    await executeStatement(
+      this.db,
+      `INSERT INTO fx_rates (id, base_currency, quote_currency, rate, rate_date, timestamp, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (base_currency, quote_currency, rate_date) DO UPDATE SET
+         rate = excluded.rate,
+         timestamp = excluded.timestamp,
+         source = excluded.source`,
+      [
+        crypto.randomUUID(),
+        input.base,
+        input.quote,
+        input.rate,
+        input.rateDate,
+        input.timestamp,
+        input.source,
+      ],
+    )
   }
 }
