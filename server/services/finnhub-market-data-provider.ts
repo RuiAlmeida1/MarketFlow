@@ -4,6 +4,8 @@ import type {
   MarketDataProvider,
   MarketInstrumentKind,
   MarketQuote,
+  SymbolQuote,
+  SymbolQuoteProvider,
 } from '../../shared/domain/markets/market-data'
 
 /**
@@ -12,13 +14,17 @@ import type {
  *   d  change
  *   dp percent change
  *   pc previous close
+ *   t  last trade timestamp (unix seconds)
  */
 const finnhubQuoteSchema = z.object({
   c: z.number(),
   d: z.number().nullable().optional(),
   dp: z.number().nullable().optional(),
   pc: z.number().optional(),
+  t: z.number().optional(),
 })
+
+type FinnhubQuotePayload = z.infer<typeof finnhubQuoteSchema>
 
 export interface FinnhubInstrument {
   readonly symbol: string
@@ -59,7 +65,9 @@ const DEFAULT_TIMEOUT_MS = 8_000
  * Live market data via Finnhub. The API key stays on the worker; the browser
  * only ever talks to our own `/api/markets` endpoint.
  */
-export class FinnhubMarketDataProvider implements MarketDataProvider {
+export class FinnhubMarketDataProvider
+  implements MarketDataProvider, SymbolQuoteProvider
+{
   private readonly apiKey: string
   private readonly baseUrl: string
   private readonly instruments: readonly FinnhubInstrument[]
@@ -95,11 +103,40 @@ export class FinnhubMarketDataProvider implements MarketDataProvider {
     return quotes
   }
 
+  /** Quote for a single symbol, used to price portfolio holdings. */
+  async getSymbolQuote(symbol: string): Promise<SymbolQuote | null> {
+    const payload = await this.requestQuote(symbol)
+    if (!payload || payload.c === 0) return null
+    return {
+      symbol,
+      price: payload.c,
+      previousClose: payload.pc ?? 0,
+      change: payload.d ?? 0,
+      changePercentage: payload.dp ?? 0,
+      timestamp: payload.t ? payload.t * 1000 : Date.now(),
+    }
+  }
+
   private async fetchInstrument(
     instrument: FinnhubInstrument,
   ): Promise<MarketQuote | null> {
+    const payload = await this.requestQuote(instrument.symbol)
+    // Finnhub returns c=0 for symbols that are unknown or not entitled.
+    if (!payload || payload.c === 0) return null
+
+    return {
+      symbol: instrument.symbol,
+      name: instrument.name,
+      kind: instrument.kind,
+      value: payload.c,
+      change: payload.d ?? 0,
+      changePercentage: payload.dp ?? 0,
+    }
+  }
+
+  private async requestQuote(symbol: string): Promise<FinnhubQuotePayload | null> {
     const url = new URL(`${this.baseUrl}/quote`)
-    url.searchParams.set('symbol', instrument.symbol)
+    url.searchParams.set('symbol', symbol)
     url.searchParams.set('token', this.apiKey)
 
     const fetchFn = this.fetcher
@@ -119,18 +156,6 @@ export class FinnhubMarketDataProvider implements MarketDataProvider {
     if (!parsed.success) {
       throw new ExternalServiceError('Market data provider returned an unexpected payload.')
     }
-
-    const { c, d, dp } = parsed.data
-    // Finnhub returns c=0 for symbols that are unknown or not entitled.
-    if (c === 0) return null
-
-    return {
-      symbol: instrument.symbol,
-      name: instrument.name,
-      kind: instrument.kind,
-      value: c,
-      change: d ?? 0,
-      changePercentage: dp ?? 0,
-    }
+    return parsed.data
   }
 }

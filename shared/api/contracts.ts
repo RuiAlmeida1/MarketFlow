@@ -154,6 +154,17 @@ export interface LogoutResponse {
   readonly success: boolean
 }
 
+export interface SyncResponse {
+  readonly portfolioId: string
+  readonly positions: number
+  readonly realizedGains: readonly Money[]
+  readonly prices: {
+    readonly updated: number
+    readonly skipped: number
+    readonly failed: number
+  }
+}
+
 export interface HoldingsResponse {
   readonly portfolioId: string
   readonly holdings: readonly HoldingDto[]

@@ -10,6 +10,7 @@ import {
   getPortfolio,
   getTransactions,
   listPortfolios,
+  syncPortfolio,
 } from './portfolios'
 import { getMarkets, getMe, listWatchlists, searchAssets } from './reference'
 
@@ -31,6 +32,7 @@ export function createRouter(): Router {
   router.get('/api/portfolios/:id/dividends', getDividends)
   router.get('/api/portfolios/:id/performance', getPerformance)
   router.get('/api/portfolios/:id/allocation', getAllocation)
+  router.post('/api/portfolios/:id/sync', syncPortfolio)
 
   router.get('/api/watchlists', listWatchlists)
   router.get('/api/markets', getMarkets)

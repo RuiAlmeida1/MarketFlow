@@ -4,6 +4,7 @@ import type {
   HoldingsResponse,
   PerformanceResponse,
   PortfolioListResponse,
+  SyncResponse,
   TransactionsResponse,
 } from '../../shared/api/contracts'
 import type { Portfolio } from '../../shared/domain'
@@ -112,6 +113,26 @@ export const getAllocation: RouteHandler = async (context) => {
       dimension: resolvedDimension,
       slices: buildAllocation(portfolioContext, resolvedDimension),
     },
+  }
+  return jsonResponse(body)
+}
+
+/**
+ * Rebuilds holdings from transactions and refreshes live prices for tracked
+ * assets. Safe to call repeatedly (idempotent projection + upserted prices).
+ */
+export const syncPortfolio: RouteHandler = async (context) => {
+  const userId = await context.getUserId()
+  const portfolio = await context.services.portfolios.requireOwned(
+    userId,
+    requireParam(context, 'id'),
+  )
+  const result = await context.services.sync.syncPortfolio(portfolio.id)
+  const body: SyncResponse = {
+    portfolioId: portfolio.id,
+    positions: result.positions,
+    realizedGains: result.realizedGains,
+    prices: result.prices,
   }
   return jsonResponse(body)
 }

@@ -55,4 +55,21 @@ export default {
       return withCors(errorResponse(error), env)
     }
   },
+
+  /**
+   * Scheduled job: keeps holdings (derived from transactions) and live prices
+   * up to date. Runs independently of any user session.
+   */
+  async scheduled(
+    _controller: ScheduledController,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<void> {
+    const services = createServices(env)
+    ctx.waitUntil(
+      services.sync.syncAll().then((result) => {
+        console.info('[cron] sync complete', result)
+      }),
+    )
+  },
 } satisfies ExportedHandler<Env>

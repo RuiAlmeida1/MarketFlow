@@ -13,6 +13,7 @@ import type {
   PerformanceResponse,
   PortfolioListResponse,
   SessionResponse,
+  SyncResponse,
   TransactionsResponse,
   WatchlistsResponse,
 } from '@shared/api/contracts'
@@ -138,6 +139,11 @@ export const api = {
     request<AllocationResponse>(
       `/api/portfolios/${encodeURIComponent(id)}/allocation${buildQuery({ dimension })}`,
     ),
+
+  syncPortfolio: (id: string) =>
+    request<SyncResponse>(`/api/portfolios/${encodeURIComponent(id)}/sync`, {
+      method: 'POST',
+    }),
 
   watchlists: () => request<WatchlistsResponse>('/api/watchlists'),
 

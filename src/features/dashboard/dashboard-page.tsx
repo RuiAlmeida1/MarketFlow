@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { ErrorBoundary } from '@/components/common/error-boundary'
 import { SectionCard } from '@/components/ui/card'
 import { EmptyState } from '@/components/ui/empty-state'
 import { ErrorState } from '@/components/ui/error-state'
+import { api } from '@/lib/api-client'
 import { AllocationChart } from './components/allocation-chart'
 import { DashboardSkeleton } from './components/dashboard-skeleton'
 import { DividendIncomeChart } from './components/dividend-income-chart'
@@ -27,6 +29,20 @@ export function DashboardPage() {
     dimension,
     setDimension,
   } = useDashboard()
+  const [refreshing, setRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    if (!data) return
+    setRefreshing(true)
+    try {
+      await api.syncPortfolio(data.portfolio.id)
+      refetch()
+    } catch (caught) {
+      console.error('[dashboard] sync failed', caught)
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   if (isLoading) return <DashboardSkeleton />
 
@@ -61,6 +77,8 @@ export function DashboardPage() {
         summary={data.summary}
         period={period}
         onPeriodChange={setPeriod}
+        onRefresh={handleRefresh}
+        refreshing={refreshing}
       />
 
       <SummaryMetrics summary={data.summary} />

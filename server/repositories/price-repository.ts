@@ -1,5 +1,5 @@
-import type { AssetPriceRecord } from '../../shared/domain'
-import { placeholders, queryAll } from '../db/client'
+import type { AssetPriceRecord, Money } from '../../shared/domain'
+import { executeStatement, placeholders, queryAll } from '../db/client'
 import { mapAssetPrice } from '../db/mappers'
 import type { AssetPriceRow } from '../db/rows'
 
@@ -61,5 +61,33 @@ export class PriceRepository {
       [assetId, limit],
     )
     return rows.map(mapAssetPrice)
+  }
+
+  /** Insert or update the single price for an (asset, day, source). */
+  async upsertPrice(input: {
+    assetId: string
+    price: Money
+    priceDate: string
+    timestamp: string
+    source: string
+  }): Promise<void> {
+    await executeStatement(
+      this.db,
+      `INSERT INTO asset_prices (id, asset_id, price_minor, currency, price_date, timestamp, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (asset_id, price_date, source) DO UPDATE SET
+         price_minor = excluded.price_minor,
+         currency = excluded.currency,
+         timestamp = excluded.timestamp`,
+      [
+        crypto.randomUUID(),
+        input.assetId,
+        input.price.minorUnits,
+        input.price.currency,
+        input.priceDate,
+        input.timestamp,
+        input.source,
+      ],
+    )
   }
 }

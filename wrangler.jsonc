@@ -23,6 +23,10 @@
   "observability": {
     "enabled": true
   },
+  "triggers": {
+    // Rebuilds holdings from transactions and refreshes live prices.
+    "crons": ["*/30 * * * *"]
+  },
   "vars": {
     "APP_ENV": "production",
     // Built-in email/password sign-in. AUTH_PASSWORD and SESSION_SECRET are

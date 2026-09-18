@@ -1,9 +1,11 @@
+import { RefreshCw } from 'lucide-react'
 import {
   PERFORMANCE_PERIODS,
   PERFORMANCE_PERIOD_LABELS,
   type PerformancePeriod,
   type PortfolioSummaryDto,
 } from '@shared/api/contracts'
+import { Button } from '@/components/ui/button'
 import { ChangeIndicator } from '@/components/ui/change-indicator'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { cn } from '@/lib/cn'
@@ -24,9 +26,17 @@ export interface PortfolioHeroProps {
   summary: PortfolioSummaryDto
   period: PerformancePeriod
   onPeriodChange: (period: PerformancePeriod) => void
+  onRefresh?: () => void
+  refreshing?: boolean
 }
 
-export function PortfolioHero({ summary, period, onPeriodChange }: PortfolioHeroProps) {
+export function PortfolioHero({
+  summary,
+  period,
+  onPeriodChange,
+  onRefresh,
+  refreshing = false,
+}: PortfolioHeroProps) {
   const returnTone = valueTone(summary.unrealizedReturnPercentage)
 
   return (
@@ -72,13 +82,30 @@ export function PortfolioHero({ summary, period, onPeriodChange }: PortfolioHero
               </dd>
             </div>
           </dl>
-          <SegmentedControl
-            options={PERIOD_OPTIONS}
-            value={period}
-            onChange={onPeriodChange}
-            ariaLabel="Performance period"
-            size="md"
-          />
+          <div className="flex items-center gap-2">
+            <SegmentedControl
+              options={PERIOD_OPTIONS}
+              value={period}
+              onChange={onPeriodChange}
+              ariaLabel="Performance period"
+              size="md"
+            />
+            {onRefresh ? (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={onRefresh}
+                disabled={refreshing}
+                aria-label="Refresh holdings and prices"
+              >
+                <RefreshCw
+                  className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')}
+                  aria-hidden="true"
+                />
+                {refreshing ? 'Syncing…' : 'Sync'}
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
     </section>

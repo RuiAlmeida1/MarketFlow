@@ -15,6 +15,14 @@ export class PortfolioRepository {
     return rows.map(mapPortfolio)
   }
 
+  async listAll(): Promise<Portfolio[]> {
+    const rows = await queryAll<PortfolioRow>(
+      this.db,
+      'SELECT * FROM portfolios ORDER BY created_at ASC',
+    )
+    return rows.map(mapPortfolio)
+  }
+
   async findById(id: string): Promise<Portfolio | null> {
     const row = await queryFirst<PortfolioRow>(
       this.db,

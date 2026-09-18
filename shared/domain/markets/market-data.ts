@@ -23,3 +23,18 @@ export interface MarketQuote {
 export interface MarketDataProvider {
   getOverview(): Promise<MarketQuote[]>
 }
+
+/** A single-instrument quote used to price portfolio holdings. */
+export interface SymbolQuote {
+  readonly symbol: string
+  readonly price: number
+  readonly previousClose: number
+  readonly change: number
+  readonly changePercentage: number
+  /** Unix epoch milliseconds of the quote. */
+  readonly timestamp: number
+}
+
+export interface SymbolQuoteProvider {
+  getSymbolQuote(symbol: string): Promise<SymbolQuote | null>
+}

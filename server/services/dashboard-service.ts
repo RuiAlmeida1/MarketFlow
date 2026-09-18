@@ -12,6 +12,7 @@ import type {
   Transaction,
 } from '../../shared/domain'
 import { sumMoney } from '../../shared/domain'
+import { projectPortfolio } from '../../shared/domain/portfolio/holdings-rebuild'
 import { convertWithResolver } from '../../shared/domain/fx/convert'
 import type { FxResolver } from '../../shared/domain/fx/exchange-rate'
 import { zero } from '../../shared/domain/money/money'
@@ -65,7 +66,7 @@ export class DashboardService {
         'dividends',
       ),
       this.degrade(
-        this.transactions.listByPortfolio(context.portfolio.id, 200),
+        this.transactions.listByPortfolio(context.portfolio.id, 5000),
         [] as Transaction[],
         'transactions',
       ),
@@ -159,8 +160,13 @@ export class DashboardService {
             .value,
       )
     const interest = sumMoney(interestValues, baseCurrency)
-    // Realized gains need full transaction replay with cost basis (Phase 2).
-    const realizedGains = zero(baseCurrency)
+    // Realized gains are replayed from the transaction log (moving average).
+    const realizedGains = sumMoney(
+      projectPortfolio(transactions).realizedGains.map(
+        (money) => convertWithResolver(money, baseCurrency, fx).value,
+      ),
+      baseCurrency,
+    )
     const otherIncome = zero(baseCurrency)
     const total = sumMoney(
       [annualDividends, realizedGains, interest, otherIncome],

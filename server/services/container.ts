@@ -14,9 +14,12 @@ import { CurrencyConversionService } from './currency-conversion-service'
 import { DashboardService } from './dashboard-service'
 import { DividendService } from './dividend-service'
 import { FinnhubMarketDataProvider } from './finnhub-market-data-provider'
+import { HoldingsService } from './holdings-service'
 import { MarketDataService, MockMarketDataProvider } from './market-data-service'
 import { PerformanceService } from './performance-service'
 import { PortfolioService } from './portfolio-service'
+import { PriceRefreshService } from './price-refresh-service'
+import { SyncService } from './sync-service'
 import { WatchlistService } from './watchlist-service'
 
 export interface Services {
@@ -31,6 +34,7 @@ export interface Services {
   readonly markets: MarketDataService
   readonly conversion: CurrencyConversionService
   readonly dashboard: DashboardService
+  readonly sync: SyncService
 }
 
 /**
@@ -61,12 +65,20 @@ export function createServices(env: Env): Services {
   const dividendService = new DividendService(dividends, assets)
   const performanceService = new PerformanceService(snapshots)
   const watchlistService = new WatchlistService(watchlists, assets, prices)
-  // Live market data when a Finnhub key is configured, mock otherwise.
-  const marketService = new MarketDataService(
-    env.FINNHUB_API_KEY
-      ? new FinnhubMarketDataProvider({ apiKey: env.FINNHUB_API_KEY })
-      : new MockMarketDataProvider(),
+  // A single Finnhub client serves both the market overview and live holdings
+  // pricing. Without a key, the overview uses the mock and pricing is a no-op.
+  const finnhub = env.FINNHUB_API_KEY
+    ? new FinnhubMarketDataProvider({ apiKey: env.FINNHUB_API_KEY })
+    : null
+  const marketService = new MarketDataService(finnhub ?? new MockMarketDataProvider())
+  const holdingsService = new HoldingsService(transactions, holdings)
+  const priceRefreshService = new PriceRefreshService(
+    finnhub,
+    assets,
+    holdings,
+    prices,
   )
+  const syncService = new SyncService(portfolios, holdingsService, priceRefreshService)
   const dashboardService = new DashboardService(
     portfolioService,
     dividendService,
@@ -88,5 +100,6 @@ export function createServices(env: Env): Services {
     markets: marketService,
     conversion,
     dashboard: dashboardService,
+    sync: syncService,
   }
 }
