@@ -1,9 +1,11 @@
 import type { MarketsResponse } from '../../shared/api/contracts'
 import type { MarketDataProvider, MarketQuote } from '../../shared/domain'
 
+const DEFAULT_CACHE_TTL_MS = 60_000
+
 /**
  * Development market data. Values are fictional but shaped like real quotes so
- * the UI can be built and tested before a vendor is wired in.
+ * the UI can be built and tested before a live vendor is configured.
  */
 const MOCK_MARKET_QUOTES: readonly MarketQuote[] = [
   {
@@ -70,11 +72,40 @@ export class MockMarketDataProvider implements MarketDataProvider {
   }
 }
 
+/**
+ * Applies a short-lived cache in front of whichever provider is configured.
+ * This protects upstream rate limits (Finnhub free tier: 60 req/min) and lets
+ * the dashboard reuse a single market snapshot per request. If the provider
+ * fails and a previous snapshot exists, the stale snapshot is served.
+ */
 export class MarketDataService {
-  constructor(private readonly provider: MarketDataProvider = new MockMarketDataProvider()) {}
+  private cache: { data: MarketsResponse; expiresAt: number } | null = null
+
+  constructor(
+    private readonly provider: MarketDataProvider = new MockMarketDataProvider(),
+    private readonly ttlMs = DEFAULT_CACHE_TTL_MS,
+  ) {}
 
   async getOverview(): Promise<MarketsResponse> {
-    const quotes = await this.provider.getOverview()
-    return { asOf: new Date().toISOString(), quotes }
+    const now = Date.now()
+    if (this.cache && this.cache.expiresAt > now) {
+      return this.cache.data
+    }
+
+    try {
+      const quotes = await this.provider.getOverview()
+      const response: MarketsResponse = { asOf: new Date().toISOString(), quotes }
+      // Only cache non-empty results so transient provider issues are retried.
+      if (quotes.length > 0) {
+        this.cache = { data: response, expiresAt: now + this.ttlMs }
+      }
+      return response
+    } catch (error) {
+      if (this.cache) {
+        console.warn('[market-data] provider failed, serving stale snapshot', error)
+        return this.cache.data
+      }
+      throw error
+    }
   }
 }

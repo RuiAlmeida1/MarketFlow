@@ -12,7 +12,8 @@ import { WatchlistRepository } from '../repositories/watchlist-repository'
 import { CurrencyConversionService } from './currency-conversion-service'
 import { DashboardService } from './dashboard-service'
 import { DividendService } from './dividend-service'
-import { MarketDataService } from './market-data-service'
+import { FinnhubMarketDataProvider } from './finnhub-market-data-provider'
+import { MarketDataService, MockMarketDataProvider } from './market-data-service'
 import { PerformanceService } from './performance-service'
 import { PortfolioService } from './portfolio-service'
 import { WatchlistService } from './watchlist-service'
@@ -57,7 +58,12 @@ export function createServices(env: Env): Services {
   const dividendService = new DividendService(dividends, assets)
   const performanceService = new PerformanceService(snapshots)
   const watchlistService = new WatchlistService(watchlists, assets, prices)
-  const marketService = new MarketDataService()
+  // Live market data when a Finnhub key is configured, mock otherwise.
+  const marketService = new MarketDataService(
+    env.FINNHUB_API_KEY
+      ? new FinnhubMarketDataProvider({ apiKey: env.FINNHUB_API_KEY })
+      : new MockMarketDataProvider(),
+  )
   const dashboardService = new DashboardService(
     portfolioService,
     dividendService,

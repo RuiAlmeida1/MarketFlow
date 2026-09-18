@@ -10,7 +10,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'shared/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'shared/**/*.test.ts', 'server/**/*.test.ts'],
     coverage: {
       reporter: ['text', 'html'],
       include: ['shared/**/*.ts', 'src/**/*.ts'],

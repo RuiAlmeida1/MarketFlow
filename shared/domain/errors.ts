@@ -19,6 +19,7 @@ export type ErrorCode =
   | 'FORBIDDEN'
   | 'DATABASE_ERROR'
   | 'CONFLICT'
+  | 'UPSTREAM_UNAVAILABLE'
   | 'INTERNAL_ERROR'
 
 export interface SerializedErrorBody {
@@ -136,6 +137,19 @@ export class ForbiddenError extends AppError {
 export class DatabaseError extends AppError {
   constructor(message = 'A persistence error occurred.', details?: Record<string, unknown>) {
     super('DATABASE_ERROR', message, 500, details)
+  }
+}
+
+/**
+ * Raised when an external provider (market data, FX, ...) fails. The message is
+ * safe for clients; provider payloads/keys are never included.
+ */
+export class ExternalServiceError extends AppError {
+  constructor(
+    message = 'An upstream service is unavailable.',
+    details?: Record<string, unknown>,
+  ) {
+    super('UPSTREAM_UNAVAILABLE', message, 502, details)
   }
 }
 
