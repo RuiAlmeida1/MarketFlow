@@ -3,7 +3,6 @@ import { isPositionTransaction } from '../../shared/domain'
 import { NotFoundError } from '../../shared/domain/errors'
 import { fromMajor } from '../../shared/domain/money/money'
 import type { AssetRepository } from '../repositories/asset-repository'
-import type { DividendRepository } from '../repositories/dividend-repository'
 import type {
   TransactionRepository,
   TransactionWrite,
@@ -12,6 +11,7 @@ import type {
   TransactionInput,
   TransactionUpdateInput,
 } from '../validation/transactions'
+import type { DividendProjectionService } from './dividend-projection-service'
 import type { HoldingsService } from './holdings-service'
 
 export interface ImportResult {
@@ -26,9 +26,14 @@ export class TransactionService {
   constructor(
     private readonly assets: AssetRepository,
     private readonly transactions: TransactionRepository,
-    private readonly dividends: DividendRepository,
+    private readonly dividendProjection: DividendProjectionService,
     private readonly holdings: HoldingsService,
   ) {}
+
+  private async refreshProjections(portfolioId: string): Promise<void> {
+    await this.holdings.rebuild(portfolioId)
+    await this.dividendProjection.rebuildFromTransactions(portfolioId)
+  }
 
   async create(portfolioId: string, input: TransactionInput): Promise<Transaction> {
     const assetId = await this.resolveAssetId(
@@ -39,7 +44,7 @@ export class TransactionService {
       input.transactionType,
     )
     const created = await this.transactions.create(this.toWrite(portfolioId, input, assetId))
-    await this.holdings.rebuild(portfolioId)
+    await this.refreshProjections(portfolioId)
     return created
   }
 
@@ -64,7 +69,7 @@ export class TransactionService {
       )
       await this.transactions.create(this.toWrite(portfolioId, input, assetId))
     }
-    await this.holdings.rebuild(portfolioId)
+    await this.refreshProjections(portfolioId)
     return { inserted: inputs.length }
   }
 
@@ -72,9 +77,9 @@ export class TransactionService {
     portfolioId: string,
     inputs: readonly TransactionInput[],
   ): Promise<ImportResult> {
-    // A full replace also clears derived dividend records so no stale seed or
+    // A full replace clears derived dividend records so no stale seed or
     // previous-import data is shown alongside the new transactions.
-    await this.dividends.deleteByPortfolio(portfolioId)
+    await this.dividendProjection.clear(portfolioId)
     await this.transactions.deleteByPortfolio(portfolioId)
     return this.createMany(portfolioId, inputs)
   }
@@ -134,7 +139,7 @@ export class TransactionService {
       ...(input.notes !== undefined ? { notes: input.notes ?? null } : {}),
     })
 
-    await this.holdings.rebuild(portfolioId)
+    await this.refreshProjections(portfolioId)
     return updated
   }
 
@@ -144,7 +149,7 @@ export class TransactionService {
       throw new NotFoundError('Transaction', id)
     }
     await this.transactions.delete(id)
-    await this.holdings.rebuild(portfolioId)
+    await this.refreshProjections(portfolioId)
   }
 
   private async resolveAssetId(

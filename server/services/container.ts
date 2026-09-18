@@ -12,6 +12,7 @@ import { WatchlistRepository } from '../repositories/watchlist-repository'
 import { AccountService } from './account-service'
 import { CurrencyConversionService } from './currency-conversion-service'
 import { DashboardService } from './dashboard-service'
+import { DividendProjectionService } from './dividend-projection-service'
 import { DividendService } from './dividend-service'
 import { FinnhubMarketDataProvider } from './finnhub-market-data-provider'
 import { HoldingsService } from './holdings-service'
@@ -74,10 +75,11 @@ export function createServices(env: Env): Services {
     : null
   const marketService = new MarketDataService(finnhub ?? new MockMarketDataProvider())
   const holdingsService = new HoldingsService(transactions, holdings)
+  const dividendProjection = new DividendProjectionService(transactions, dividends)
   const transactionService = new TransactionService(
     assets,
     transactions,
-    dividends,
+    dividendProjection,
     holdingsService,
   )
   const priceRefreshService = new PriceRefreshService(
