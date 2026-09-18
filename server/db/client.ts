@@ -57,3 +57,20 @@ export async function executeStatement(
 export function placeholders(count: number): string {
   return Array.from({ length: count }, () => '?').join(', ')
 }
+
+/**
+ * Executes prepared statements as a single D1 batch (one round trip / implicit
+ * transaction). Used for bulk inserts such as imports.
+ */
+export async function executeBatch(
+  db: D1Database,
+  statements: readonly D1PreparedStatement[],
+): Promise<void> {
+  if (statements.length === 0) return
+  try {
+    await db.batch([...statements])
+  } catch (error) {
+    console.error('[db] batch failed', error)
+    throw new DatabaseError()
+  }
+}

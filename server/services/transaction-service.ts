@@ -52,6 +52,8 @@ export class TransactionService {
     portfolioId: string,
     inputs: readonly TransactionInput[],
   ): Promise<ImportResult> {
+    if (inputs.length === 0) return { inserted: 0 }
+
     // Process position transactions first so cash events (dividends, taxes)
     // can attach to the instrument asset that already exists.
     const ordered = [...inputs].sort(
@@ -59,18 +61,36 @@ export class TransactionService {
         Number(isPositionTransaction(b.transactionType)) -
         Number(isPositionTransaction(a.transactionType)),
     )
+
+    const assetCache = new Map<string, string | null>()
+    const writes: TransactionWrite[] = []
     for (const input of ordered) {
-      const assetId = await this.resolveAssetId(
-        input.assetId ?? null,
-        input.symbol ?? null,
-        input.currency,
-        input.exchange ?? null,
-        input.transactionType,
-      )
-      await this.transactions.create(this.toWrite(portfolioId, input, assetId))
+      const assetId = await this.resolveCachedAsset(assetCache, input)
+      writes.push(this.toWrite(portfolioId, input, assetId))
     }
+
+    const inserted = await this.transactions.insertMany(writes)
     await this.refreshProjections(portfolioId)
-    return { inserted: inputs.length }
+    return { inserted }
+  }
+
+  private async resolveCachedAsset(
+    cache: Map<string, string | null>,
+    input: TransactionInput,
+  ): Promise<string | null> {
+    const kind = isPositionTransaction(input.transactionType) ? 'P' : 'C'
+    const key = `${input.assetId ?? ''}|${input.symbol ?? ''}|${input.exchange ?? ''}|${input.currency}|${kind}`
+    if (cache.has(key)) return cache.get(key) ?? null
+
+    const assetId = await this.resolveAssetId(
+      input.assetId ?? null,
+      input.symbol ?? null,
+      input.currency,
+      input.exchange ?? null,
+      input.transactionType,
+    )
+    cache.set(key, assetId)
+    return assetId
   }
 
   async replaceAll(

@@ -1,8 +1,10 @@
 import type { CurrencyCode, Transaction, TransactionType } from '../../shared/domain'
 import { DatabaseError } from '../../shared/domain/errors'
-import { executeStatement, queryAll, queryFirst } from '../db/client'
+import { executeBatch, executeStatement, queryAll, queryFirst } from '../db/client'
 import { mapTransaction } from '../db/mappers'
 import type { TransactionRow } from '../db/rows'
+
+const INSERT_CHUNK_SIZE = 50
 
 export interface TransactionWrite {
   readonly portfolioId: string
@@ -142,5 +144,43 @@ export class TransactionRepository {
     await executeStatement(this.db, 'DELETE FROM transactions WHERE portfolio_id = ?', [
       portfolioId,
     ])
+  }
+
+  /**
+   * Bulk inserts in chunks of {@link INSERT_CHUNK_SIZE} using D1 batches. Much
+   * faster than issuing one statement per row (used by imports).
+   */
+  async insertMany(writes: readonly TransactionWrite[]): Promise<number> {
+    const now = new Date().toISOString()
+    for (let offset = 0; offset < writes.length; offset += INSERT_CHUNK_SIZE) {
+      const chunk = writes.slice(offset, offset + INSERT_CHUNK_SIZE)
+      const statements = chunk.map((input) =>
+        this.db
+          .prepare(
+            `INSERT INTO transactions
+               (id, portfolio_id, asset_id, transaction_type, quantity, price_minor, fees_minor,
+                taxes_minor, currency, exchange_rate, transaction_date, notes, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(
+            crypto.randomUUID(),
+            input.portfolioId,
+            input.assetId,
+            input.transactionType,
+            input.quantity,
+            input.priceMinor,
+            input.feesMinor,
+            input.taxesMinor,
+            input.currency,
+            input.exchangeRate,
+            input.transactionDate,
+            input.notes,
+            now,
+            now,
+          ),
+      )
+      await executeBatch(this.db, statements)
+    }
+    return writes.length
   }
 }
