@@ -1,5 +1,7 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom'
 import { AppShell } from '@/components/layout/app-shell'
+import { RequireAuth } from '@/components/layout/require-auth'
+import { LoginPage } from '@/features/auth/login-page'
 import {
   AnalyticsPage,
   CalendarPage,
@@ -17,9 +19,14 @@ import {
 import { NotFoundPage, PlaceholderPage } from '@/features/misc/placeholder-pages'
 
 export const router = createBrowserRouter([
+  { path: '/login', element: <LoginPage /> },
   {
     path: '/',
-    element: <AppShell />,
+    element: (
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'dashboard', element: <DashboardPage /> },

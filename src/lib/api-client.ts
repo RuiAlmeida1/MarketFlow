@@ -5,17 +5,21 @@ import type {
   DividendsResponse,
   HealthResponse,
   HoldingsResponse,
+  LoginRequest,
+  LogoutResponse,
   MarketsResponse,
   MeResponse,
   PerformancePeriod,
   PerformanceResponse,
   PortfolioListResponse,
+  SessionResponse,
   TransactionsResponse,
   WatchlistsResponse,
 } from '@shared/api/contracts'
 import type { AllocationDimension, Asset, Portfolio } from '@shared/domain'
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ''
+export const UNAUTHORIZED_EVENT = 'marketflow:unauthorized'
 
 export class ApiClientError extends Error {
   readonly code: string
@@ -51,6 +55,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     response = await fetch(`${API_BASE}${path}`, {
       ...init,
+      credentials: 'same-origin',
       headers: { accept: 'application/json', ...(init?.headers ?? {}) },
     })
   } catch {
@@ -65,6 +70,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const body = isJson ? await response.json().catch(() => null) : null
 
   if (!response.ok) {
+    if (
+      response.status === 401 &&
+      !path.startsWith('/api/auth/session') &&
+      !path.startsWith('/api/auth/login')
+    ) {
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
+    }
     const parsed = body as ApiErrorResponse | null
     throw new ApiClientError(
       parsed?.error?.message ?? `Request failed with status ${response.status}.`,
@@ -88,6 +100,17 @@ export const api = {
   health: () => request<HealthResponse>('/api/health'),
 
   me: () => request<MeResponse>('/api/me'),
+
+  session: () => request<SessionResponse>('/api/auth/session'),
+
+  login: (credentials: LoginRequest) =>
+    request<SessionResponse>('/api/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(credentials),
+    }),
+
+  logout: () => request<LogoutResponse>('/api/auth/logout', { method: 'POST' }),
 
   dashboard: (params: DashboardParams = {}) =>
     request<DashboardResponse>(`/api/dashboard${buildQuery({ ...params })}`),

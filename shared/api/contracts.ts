@@ -141,6 +141,19 @@ export interface MeResponse {
   readonly user: User
 }
 
+export interface LoginRequest {
+  readonly email: string
+  readonly password: string
+}
+
+export interface SessionResponse {
+  readonly user: User
+}
+
+export interface LogoutResponse {
+  readonly success: boolean
+}
+
 export interface HoldingsResponse {
   readonly portfolioId: string
   readonly holdings: readonly HoldingDto[]

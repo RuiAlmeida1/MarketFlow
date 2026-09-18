@@ -10,8 +10,7 @@ import {
 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { api } from '@/lib/api-client'
-import { useApiQuery } from '@/hooks/use-api-query'
+import { useAuth } from '@/app/auth-context'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverItem } from '@/components/ui/popover'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -93,8 +92,7 @@ function NotificationsMenu() {
 
 function ProfileMenu() {
   const navigate = useNavigate()
-  const { data } = useApiQuery('me', () => api.me())
-  const user = data?.user
+  const { user, logout } = useAuth()
   const initials = user
     ? user.displayName
         .split(' ')
@@ -103,6 +101,10 @@ function ProfileMenu() {
         .slice(0, 2)
         .toUpperCase()
     : '··'
+
+  const handleLogout = () => {
+    void logout().then(() => navigate('/login', { replace: true }))
+  }
 
   return (
     <Popover
@@ -138,7 +140,7 @@ function ProfileMenu() {
       <PopoverItem onClick={() => navigate('/settings')}>
         <Settings className="h-4 w-4 text-subtle" aria-hidden="true" /> Settings
       </PopoverItem>
-      <PopoverItem disabled>
+      <PopoverItem onClick={handleLogout}>
         <LogOut className="h-4 w-4 text-subtle" aria-hidden="true" /> Sign out
       </PopoverItem>
     </Popover>

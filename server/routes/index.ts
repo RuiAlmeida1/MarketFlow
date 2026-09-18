@@ -1,4 +1,5 @@
 import { Router } from '../http/router'
+import { loginHandler, logoutHandler, sessionHandler } from './auth'
 import { getDashboard } from './dashboard'
 import { healthHandler } from './health'
 import {
@@ -18,6 +19,10 @@ export function createRouter(): Router {
   router.get('/api/health', healthHandler)
   router.get('/api/dashboard', getDashboard)
   router.get('/api/me', getMe)
+
+  router.post('/api/auth/login', loginHandler)
+  router.post('/api/auth/logout', logoutHandler)
+  router.get('/api/auth/session', sessionHandler)
 
   router.get('/api/portfolios', listPortfolios)
   router.get('/api/portfolios/:id', getPortfolio)

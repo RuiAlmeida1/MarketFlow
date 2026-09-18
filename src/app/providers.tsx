@@ -13,6 +13,9 @@ import {
   type ResolvedTheme,
   type ThemePreference,
 } from '@/lib/theme'
+import { UNAUTHORIZED_EVENT, api } from '@/lib/api-client'
+import { clearQueryCache } from '@/lib/query-cache'
+import { AuthContext, type AuthContextValue, type AuthStatus } from './auth-context'
 import { PortfolioContext, type PortfolioSelection } from './portfolio-context'
 import { ThemeContext } from './theme-context'
 
@@ -80,10 +83,70 @@ function PortfolioProvider({ children }: { children: ReactNode }) {
   return <PortfolioContext.Provider value={value}>{children}</PortfolioContext.Provider>
 }
 
+function AuthProvider({ children }: { children: ReactNode }) {
+  const [status, setStatus] = useState<AuthStatus>('loading')
+  const [user, setUser] = useState<AuthContextValue['user']>(null)
+
+  useEffect(() => {
+    let active = true
+    api
+      .session()
+      .then((data) => {
+        if (!active) return
+        setUser(data.user)
+        setStatus('authenticated')
+      })
+      .catch(() => {
+        if (!active) return
+        setUser(null)
+        setStatus('unauthenticated')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null)
+      setStatus('unauthenticated')
+    }
+    window.addEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, handleUnauthorized)
+  }, [])
+
+  const login = useCallback(async (email: string, password: string) => {
+    const data = await api.login({ email, password })
+    clearQueryCache()
+    setUser(data.user)
+    setStatus('authenticated')
+  }, [])
+
+  const logout = useCallback(async () => {
+    try {
+      await api.logout()
+    } catch {
+      // Signing out locally is best-effort; the cookie is cleared server-side.
+    }
+    clearQueryCache()
+    setUser(null)
+    setStatus('unauthenticated')
+  }, [])
+
+  const value = useMemo<AuthContextValue>(
+    () => ({ user, status, login, logout }),
+    [user, status, login, logout],
+  )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
 export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <ThemeProvider>
-      <PortfolioProvider>{children}</PortfolioProvider>
+      <PortfolioProvider>
+        <AuthProvider>{children}</AuthProvider>
+      </PortfolioProvider>
     </ThemeProvider>
   )
 }

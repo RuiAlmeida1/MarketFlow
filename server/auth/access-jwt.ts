@@ -1,4 +1,5 @@
 import { UnauthorizedError } from '../../shared/domain/errors'
+import { base64UrlDecodeString, base64UrlToBytes } from './base64url'
 
 /**
  * Verifies a Cloudflare Access JWT (RS256) against the team's published JWKS.
@@ -33,24 +34,6 @@ interface AccessClaims {
 
 const JWKS_TTL_MS = 60 * 60 * 1000
 let jwksCache: { domain: string; keys: Jwk[]; expiresAt: number } | null = null
-
-function base64UrlToBytes(value: string): Uint8Array {
-  const normalized = value.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = normalized.padEnd(
-    normalized.length + ((4 - (normalized.length % 4)) % 4),
-    '=',
-  )
-  const binary = atob(padded)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes
-}
-
-function base64UrlToString(value: string): string {
-  return new TextDecoder().decode(base64UrlToBytes(value))
-}
 
 async function getSigningKeys(teamDomain: string, fetcher: typeof fetch): Promise<Jwk[]> {
   if (
@@ -95,8 +78,8 @@ export async function verifyAccessJwt(
   let header: { alg?: string; kid?: string }
   let claims: AccessClaims
   try {
-    header = JSON.parse(base64UrlToString(headerPart)) as { alg?: string; kid?: string }
-    claims = JSON.parse(base64UrlToString(payloadPart)) as AccessClaims
+    header = JSON.parse(base64UrlDecodeString(headerPart)) as { alg?: string; kid?: string }
+    claims = JSON.parse(base64UrlDecodeString(payloadPart)) as AccessClaims
   } catch {
     throw new UnauthorizedError('Malformed access token.')
   }

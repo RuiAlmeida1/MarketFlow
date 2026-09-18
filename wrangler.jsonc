@@ -24,9 +24,11 @@
     "enabled": true
   },
   "vars": {
-    "APP_ENV": "production"
-    // Cloudflare Access (Zero Trust): set these from your Access application.
-    // Both are public values (not secrets).
+    "APP_ENV": "production",
+    // Built-in email/password sign-in. AUTH_PASSWORD and SESSION_SECRET are
+    // Worker secrets (wrangler secret put ...); AUTH_EMAIL is public.
+    "AUTH_EMAIL": "ruimiguelalmeida.090@gmail.com"
+    // Optional Cloudflare Access (Zero Trust) — set from your Access app:
     // "ACCESS_TEAM_DOMAIN": "your-team.cloudflareaccess.com",
     // "ACCESS_AUD": "your-access-application-aud"
   }
