@@ -96,7 +96,13 @@ export function ImportPage() {
       } catch (syncError) {
         console.error('[import] post-import price sync failed', syncError)
       }
-      invalidate(/^(markets|dashboard|holdings)/)
+      // Reconstruct historical performance from the imported transactions.
+      try {
+        await api.backfillPerformance(portfolio.id)
+      } catch (backfillError) {
+        console.error('[import] performance backfill failed', backfillError)
+      }
+      invalidate(/^(markets|dashboard|holdings|performance)/)
       setSuccess(
         `${result.inserted} transações importadas (${mode === 'replace' ? 'substituição' : 'adição'}).`,
       )

@@ -20,11 +20,14 @@ import { FxRateRefreshService } from './fx-rate-refresh-service'
 import { HoldingsService } from './holdings-service'
 import { MarketDataService, MockMarketDataProvider } from './market-data-service'
 import { PerformanceService } from './performance-service'
+import { PerformanceBackfillService } from './performance-backfill-service'
 import { PortfolioService } from './portfolio-service'
+import { PortfolioSnapshotService } from './portfolio-snapshot-service'
 import { PriceRefreshService } from './price-refresh-service'
 import { SyncService } from './sync-service'
 import { TransactionService } from './transaction-service'
 import { WatchlistService } from './watchlist-service'
+import { YahooHistoricalPriceProvider } from './yahoo-historical-price-provider'
 
 export interface Services {
   readonly users: UserRepository
@@ -40,6 +43,7 @@ export interface Services {
   readonly conversion: CurrencyConversionService
   readonly dashboard: DashboardService
   readonly sync: SyncService
+  readonly backfill: PerformanceBackfillService
 }
 
 /**
@@ -92,6 +96,7 @@ export function createServices(env: Env): Services {
   )
   const fxRefreshService = new FxRateRefreshService(fxRates)
   const enrichmentService = new AssetEnrichmentService(finnhub, assets, holdings)
+  const snapshotService = new PortfolioSnapshotService(portfolioService, snapshots)
   const syncService = new SyncService(
     portfolios,
     holdingsService,
@@ -99,6 +104,7 @@ export function createServices(env: Env): Services {
     fxRefreshService,
     prices,
     enrichmentService,
+    snapshotService,
   )
   const dashboardService = new DashboardService(
     portfolioService,
@@ -107,6 +113,14 @@ export function createServices(env: Env): Services {
     watchlistService,
     marketService,
     transactions,
+  )
+
+  const backfillService = new PerformanceBackfillService(
+    transactions,
+    assets,
+    snapshots,
+    new YahooHistoricalPriceProvider(),
+    conversion,
   )
 
   return {
@@ -123,5 +137,6 @@ export function createServices(env: Env): Services {
     conversion,
     dashboard: dashboardService,
     sync: syncService,
+    backfill: backfillService,
   }
 }

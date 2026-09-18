@@ -1,5 +1,6 @@
 import type {
   AllocationResponse,
+  BackfillResponse,
   DividendsResponse,
   HoldingsResponse,
   PerformanceResponse,
@@ -134,5 +135,20 @@ export const syncPortfolio: RouteHandler = async (context) => {
     realizedGains: result.realizedGains,
     prices: result.prices,
   }
+  return jsonResponse(body)
+}
+
+/**
+ * Reconstructs daily performance snapshots from historical prices so the chart
+ * has history from the first transaction.
+ */
+export const backfillPerformance: RouteHandler = async (context) => {
+  const userId = await context.getUserId()
+  const portfolio = await context.services.portfolios.requireOwned(
+    userId,
+    requireParam(context, 'id'),
+  )
+  const result = await context.services.backfill.backfill(portfolio)
+  const body: BackfillResponse = { days: result.days }
   return jsonResponse(body)
 }

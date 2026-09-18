@@ -47,6 +47,15 @@ export class PortfolioService {
    */
   async loadContext(userId: string, portfolioId?: string): Promise<PortfolioContext> {
     const portfolio = await this.requireOwned(userId, portfolioId)
+    return this.buildContext(portfolio)
+  }
+
+  /**
+   * Builds the valuation context for an already-authorized portfolio. Used by
+   * the dashboard and by background jobs (snapshots, cron) that operate
+   * outside a user request.
+   */
+  async buildContext(portfolio: Portfolio): Promise<PortfolioContext> {
     const holdings = await this.holdings.listByPortfolio(portfolio.id)
     const assetIds = [...new Set(holdings.map((holding) => holding.assetId))]
 

@@ -1,6 +1,7 @@
 import type {
   AllocationResponse,
   ApiErrorResponse,
+  BackfillResponse,
   DashboardResponse,
   DividendsResponse,
   HealthResponse,
@@ -146,6 +147,11 @@ export const api = {
 
   syncPortfolio: (id: string) =>
     request<SyncResponse>(`/api/portfolios/${encodeURIComponent(id)}/sync`, {
+      method: 'POST',
+    }),
+
+  backfillPerformance: (id: string) =>
+    request<BackfillResponse>(`/api/portfolios/${encodeURIComponent(id)}/backfill`, {
       method: 'POST',
     }),
 

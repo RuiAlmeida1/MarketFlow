@@ -3,6 +3,7 @@ import { loginHandler, logoutHandler, sessionHandler } from './auth'
 import { getDashboard } from './dashboard'
 import { healthHandler } from './health'
 import {
+  backfillPerformance,
   getAllocation,
   getDividends,
   getHoldings,
@@ -39,6 +40,7 @@ export function createRouter(): Router {
   router.get('/api/portfolios/:id/performance', getPerformance)
   router.get('/api/portfolios/:id/allocation', getAllocation)
   router.post('/api/portfolios/:id/sync', syncPortfolio)
+  router.post('/api/portfolios/:id/backfill', backfillPerformance)
 
   router.post('/api/portfolios/:id/transactions', createTransaction)
   router.patch('/api/portfolios/:id/transactions/:transactionId', updateTransaction)

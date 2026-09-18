@@ -196,6 +196,10 @@ export interface ImportResponse {
   readonly mode: 'append' | 'replace'
 }
 
+export interface BackfillResponse {
+  readonly days: number
+}
+
 export interface HoldingsResponse {
   readonly portfolioId: string
   readonly holdings: readonly HoldingDto[]

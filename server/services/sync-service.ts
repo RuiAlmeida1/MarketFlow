@@ -4,6 +4,7 @@ import type { PriceRepository } from '../repositories/price-repository'
 import type { AssetEnrichmentService } from './asset-enrichment-service'
 import type { FxRateRefreshService } from './fx-rate-refresh-service'
 import type { HoldingsService } from './holdings-service'
+import type { PortfolioSnapshotService } from './portfolio-snapshot-service'
 import type { PriceRefreshService, PriceRefreshSummary } from './price-refresh-service'
 
 export interface PortfolioSyncResult {
@@ -38,6 +39,7 @@ export class SyncService {
     private readonly fxRefresh: FxRateRefreshService,
     private readonly prices: PriceRepository,
     private readonly enrichment: AssetEnrichmentService,
+    private readonly snapshots: PortfolioSnapshotService,
   ) {}
 
   private async refreshRates(): Promise<void> {
@@ -75,6 +77,16 @@ export class SyncService {
     await this.refreshRates()
     await this.enrichAssets()
     const prices = await this.priceRefresh.refreshTrackedAssets()
+
+    const portfolio = await this.portfolios.findById(portfolioId)
+    if (portfolio) {
+      try {
+        await this.snapshots.capture(portfolio)
+      } catch (error) {
+        console.warn('[sync] snapshot capture failed', error)
+      }
+    }
+
     return {
       portfolioId,
       positions: rebuild.positions,
@@ -91,6 +103,15 @@ export class SyncService {
     await this.refreshRates()
     await this.enrichAssets()
     const prices = await this.priceRefresh.refreshTrackedAssets()
+
+    for (const portfolio of portfolios) {
+      try {
+        await this.snapshots.capture(portfolio)
+      } catch (error) {
+        console.warn('[sync] snapshot capture failed', portfolio.id, error)
+      }
+    }
+
     return { portfolios: portfolios.length, prices }
   }
 }
