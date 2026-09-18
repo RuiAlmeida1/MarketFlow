@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type { CurrencyCode } from '../../shared/domain'
 import { isCurrencyCode } from '../../shared/domain'
 import { ExternalServiceError } from '../../shared/domain/errors'
+import { toDateKey } from '../../shared/utils/date'
 import type { FxRateWrite } from '../repositories/fx-rate-repository'
 
 const frankfurterSchema = z.object({
@@ -17,14 +18,19 @@ export interface FxRateWriter {
   upsertRate(input: FxRateWrite): Promise<void>
 }
 
+/** Synchronous-ish latest price source used for intraday FX. */
+export interface LatestPriceProvider {
+  getLatestPrice(symbol: string): Promise<number | null>
+}
+
 export interface FxRefreshResult {
   readonly updated: number
 }
 
 /**
- * Refreshes FX rates from Frankfurter (ECB reference rates, no API key).
- * Stores both directions so a stale direct pair can never win over a fresh
- * inverse.
+ * Refreshes FX rates from Frankfurter (ECB reference rates, no API key) and
+ * overlays live EUR/USD from Yahoo so intraday moves are reflected. Stores both
+ * directions so a stale direct pair can never win over a fresh inverse.
  */
 export class FxRateRefreshService {
   constructor(
@@ -32,6 +38,7 @@ export class FxRateRefreshService {
     private readonly baseCurrency: CurrencyCode = 'EUR',
     private readonly fetcher: typeof fetch = (input, init) =>
       globalThis.fetch(input, init),
+    private readonly latest: LatestPriceProvider | null = null,
   ) {}
 
   async refresh(): Promise<FxRefreshResult> {
@@ -69,6 +76,38 @@ export class FxRateRefreshService {
       updated += 1
     }
 
+    await this.overlayLiveRate()
+
     return { updated }
   }
+
+  /**
+   * Overlays the live EUR/USD rate (Yahoo) for today so intraday FX is not
+   * stuck at the daily ECB fixing.
+   */
+  private async overlayLiveRate(): Promise<void> {
+    if (!this.latest) return
+    const eurUsd = await this.latest.getLatestPrice('EURUSD=X')
+    if (eurUsd == null || eurUsd <= 0) return
+
+    const rateDate = toDateKey(new Date())
+    const timestamp = new Date(Date.now() + 1).toISOString()
+    await this.rates.upsertRate({
+      base: 'EUR',
+      quote: 'USD',
+      rate: eurUsd,
+      rateDate,
+      timestamp,
+      source: 'yahoo',
+    })
+    await this.rates.upsertRate({
+      base: 'USD',
+      quote: 'EUR',
+      rate: 1 / eurUsd,
+      rateDate,
+      timestamp,
+      source: 'yahoo',
+    })
+  }
 }
+

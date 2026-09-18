@@ -38,6 +38,32 @@ describe('FxRateRefreshService', () => {
     expect(writes.every((w) => w.rateDate === '2026-09-18' && w.source === 'frankfurter')).toBe(true)
   })
 
+  it('overlays the live EUR/USD rate from the latest provider', async () => {
+    const writes: FxRateWrite[] = []
+    const writer: FxRateWriter = {
+      upsertRate: vi.fn(async (write) => {
+        writes.push(write)
+      }),
+    }
+    const fetcher = vi.fn(async () =>
+      jsonResponse({ base: 'EUR', date: '2026-09-17', rates: { USD: 1.15 } }),
+    )
+    const latest = { getLatestPrice: vi.fn(async () => 1.2) }
+    const service = new FxRateRefreshService(
+      writer,
+      'EUR',
+      fetcher as unknown as typeof fetch,
+      latest,
+    )
+
+    await service.refresh()
+
+    const live = writes.find((w) => w.source === 'yahoo' && w.base === 'EUR' && w.quote === 'USD')
+    const inverse = writes.find((w) => w.source === 'yahoo' && w.base === 'USD' && w.quote === 'EUR')
+    expect(live?.rate).toBeCloseTo(1.2)
+    expect(inverse?.rate).toBeCloseTo(1 / 1.2)
+  })
+
   it('throws when the provider fails', async () => {
     const writer: FxRateWriter = { upsertRate: vi.fn() }
     const fetcher = vi.fn(async () => jsonResponse({}, 503))

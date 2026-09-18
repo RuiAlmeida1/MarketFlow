@@ -7,6 +7,13 @@ const yahooSchema = z.object({
     result: z
       .array(
         z.object({
+          meta: z
+            .object({
+              regularMarketPrice: z.number().optional(),
+              previousClose: z.number().optional(),
+              chartPreviousClose: z.number().optional(),
+            })
+            .optional(),
           timestamp: z.array(z.number()).optional(),
           indicators: z.object({
             quote: z.array(z.object({ close: z.array(z.number().nullable()) })),
@@ -78,5 +85,44 @@ export class YahooHistoricalPriceProvider implements HistoricalPriceProvider {
       points.push({ date: toDateKey(new Date(timestamp * 1000)), close })
     }
     return points
+  }
+
+  /** Latest (near real-time) price, used for live FX. */
+  async getLatestPrice(symbol: string): Promise<number | null> {
+    const quote = await this.getLatestQuote(symbol)
+    return quote?.price ?? null
+  }
+
+  /** Latest price + previous close from the Yahoo chart metadata. */
+  async getLatestQuote(
+    symbol: string,
+  ): Promise<{ price: number; previousClose: number } | null> {
+    const url = new URL(`${this.baseUrl}/${encodeURIComponent(symbol)}`)
+    url.searchParams.set('range', '1d')
+    url.searchParams.set('interval', '1m')
+
+    const response = await this.fetcher(url.toString(), {
+      headers: {
+        accept: 'application/json',
+        'user-agent': 'Mozilla/5.0 (compatible; MarketFlow/1.0)',
+      },
+      signal: AbortSignal.timeout(this.timeoutMs),
+    })
+    if (!response.ok) return null
+
+    const parsed = yahooSchema.safeParse(await response.json())
+    const result = parsed.success ? parsed.data.chart.result?.[0] : undefined
+    if (!result) return null
+
+    const meta = result.meta
+    const price =
+      meta?.regularMarketPrice ??
+      (result.indicators.quote[0]?.close ?? []).filter(
+        (value): value is number => value != null && value > 0,
+      ).pop()
+    if (price == null || price <= 0) return null
+
+    const previousClose = meta?.previousClose ?? meta?.chartPreviousClose ?? price
+    return { price, previousClose }
   }
 }

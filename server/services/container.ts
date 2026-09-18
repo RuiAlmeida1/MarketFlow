@@ -71,6 +71,7 @@ export function createServices(env: Env): Services {
     prices,
     conversion,
   )
+  const historicalProvider = new YahooHistoricalPriceProvider()
   const dividendService = new DividendService(dividends, assets)
   const performanceService = new PerformanceService(snapshots)
   const watchlistService = new WatchlistService(watchlists, assets, prices)
@@ -93,8 +94,14 @@ export function createServices(env: Env): Services {
     assets,
     holdings,
     prices,
+    historicalProvider,
   )
-  const fxRefreshService = new FxRateRefreshService(fxRates)
+  const fxRefreshService = new FxRateRefreshService(
+    fxRates,
+    'EUR',
+    (input, init) => globalThis.fetch(input, init),
+    historicalProvider,
+  )
   const enrichmentService = new AssetEnrichmentService(finnhub, assets, holdings)
   const snapshotService = new PortfolioSnapshotService(portfolioService, snapshots)
   const syncService = new SyncService(
@@ -119,7 +126,7 @@ export function createServices(env: Env): Services {
     transactions,
     assets,
     snapshots,
-    new YahooHistoricalPriceProvider(),
+    historicalProvider,
     conversion,
   )
 

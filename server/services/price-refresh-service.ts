@@ -30,9 +30,14 @@ export function isQuoteSupported(
   return asset.exchange != null && SUPPORTED_EXCHANGES.has(asset.exchange)
 }
 
+export interface LatestQuoteProvider {
+  getLatestQuote(symbol: string): Promise<{ price: number; previousClose: number } | null>
+}
+
 /**
  * Fetches live quotes for every tracked asset and upserts them into
- * `asset_prices`. No provider (no Finnhub key) means a no-op.
+ * `asset_prices`. Prefers a near-real-time provider (Yahoo) and falls back to
+ * the configured quote provider (Finnhub). No provider means a no-op.
  */
 export class PriceRefreshService {
   constructor(
@@ -40,6 +45,7 @@ export class PriceRefreshService {
     private readonly assets: AssetRepository,
     private readonly holdings: HoldingRepository,
     private readonly prices: PriceRepository,
+    private readonly liveQuotes: LatestQuoteProvider | null = null,
   ) {}
 
   async refreshTrackedAssets(): Promise<PriceRefreshSummary> {
@@ -65,7 +71,7 @@ export class PriceRefreshService {
         continue
       }
       try {
-        const quote = await this.provider.getSymbolQuote(asset.symbol)
+        const quote = await this.resolveQuote(asset.symbol)
         if (!quote || quote.price <= 0) {
           skipped += 1
           continue
@@ -96,5 +102,25 @@ export class PriceRefreshService {
     }
 
     return { updated, skipped, failed }
+  }
+
+  private async resolveQuote(
+    symbol: string,
+  ): Promise<{ price: number; previousClose: number } | null> {
+    if (this.liveQuotes) {
+      try {
+        const live = await this.liveQuotes.getLatestQuote(symbol)
+        if (live && live.price > 0) return live
+      } catch (error) {
+        console.warn('[price-refresh] live quote failed, falling back', { symbol, error })
+      }
+    }
+    if (this.provider) {
+      const quote = await this.provider.getSymbolQuote(symbol)
+      if (quote && quote.price > 0) {
+        return { price: quote.price, previousClose: quote.previousClose }
+      }
+    }
+    return null
   }
 }
