@@ -27,18 +27,21 @@ export interface FinnhubInstrument {
 }
 
 /**
- * Instruments shown in the market overview. Finnhub symbol formats vary by
- * asset class (equities `AAPL`, indices `^GSPC`, forex `OANDA:EUR_USD`).
- * Unsupported symbols on a given plan are skipped, never fatal.
+ * Instruments shown in the market overview.
+ *
+ * Finnhub's free plan exposes US equities/ETFs but gates indices, forex and
+ * spot commodities, so liquid ETFs are used as proxies. Symbols your plan does
+ * not entitle (or that return no price) are simply skipped, never fatal.
+ * Upgrading allows switching back to `^GSPC`, `^IXIC`, `^DJI`, `OANDA:EUR_USD`,
+ * etc.
  */
 export const DEFAULT_FINNHUB_INSTRUMENTS: readonly FinnhubInstrument[] = [
-  { symbol: '^GSPC', name: 'S&P 500', kind: 'index' },
-  { symbol: '^IXIC', name: 'NASDAQ Composite', kind: 'index' },
-  { symbol: '^DJI', name: 'Dow Jones Industrial Average', kind: 'index' },
-  { symbol: '^VIX', name: 'CBOE Volatility Index', kind: 'volatility' },
-  { symbol: '^TNX', name: 'US 10Y Treasury Yield', kind: 'rate' },
-  { symbol: 'OANDA:EUR_USD', name: 'EUR/USD', kind: 'rate' },
-  { symbol: 'OANDA:XAU_USD', name: 'Gold Spot', kind: 'commodity' },
+  { symbol: 'SPY', name: 'S&P 500 (SPY)', kind: 'index' },
+  { symbol: 'QQQ', name: 'NASDAQ 100 (QQQ)', kind: 'index' },
+  { symbol: 'DIA', name: 'Dow Jones (DIA)', kind: 'index' },
+  { symbol: 'VIXY', name: 'Volatility (VIXY)', kind: 'volatility' },
+  { symbol: 'TLT', name: 'US 20Y+ Treasury (TLT)', kind: 'bond' },
+  { symbol: 'GLD', name: 'Gold (GLD)', kind: 'commodity' },
 ]
 
 export interface FinnhubMarketDataProviderOptions {
@@ -70,7 +73,9 @@ export class FinnhubMarketDataProvider implements MarketDataProvider {
     this.apiKey = options.apiKey
     this.baseUrl = options.baseUrl ?? DEFAULT_BASE_URL
     this.instruments = options.instruments ?? DEFAULT_FINNHUB_INSTRUMENTS
-    this.fetcher = options.fetcher ?? fetch
+    // Never store the bare global `fetch`: invoking it as an object method
+    // ("illegal invocation") fails in Workers. Wrap it so `this` is correct.
+    this.fetcher = options.fetcher ?? ((input, init) => globalThis.fetch(input, init))
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
   }
 
@@ -97,7 +102,8 @@ export class FinnhubMarketDataProvider implements MarketDataProvider {
     url.searchParams.set('symbol', instrument.symbol)
     url.searchParams.set('token', this.apiKey)
 
-    const response = await this.fetcher(url.toString(), {
+    const fetchFn = this.fetcher
+    const response = await fetchFn(url.toString(), {
       headers: { accept: 'application/json' },
       signal: AbortSignal.timeout(this.timeoutMs),
     })

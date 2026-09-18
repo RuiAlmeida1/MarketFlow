@@ -3,7 +3,13 @@
  * specific vendor. Phase 1 ships a mock provider; Phase 2 can swap in Finnhub,
  * Twelve Data, Alpha Vantage, Polygon or FMP without touching components.
  */
-export type MarketInstrumentKind = 'index' | 'rate' | 'volatility' | 'commodity' | 'crypto'
+export type MarketInstrumentKind =
+  | 'index'
+  | 'rate'
+  | 'volatility'
+  | 'commodity'
+  | 'crypto'
+  | 'bond'
 
 export interface MarketQuote {
   readonly symbol: string
